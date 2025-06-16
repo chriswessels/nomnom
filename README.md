@@ -22,13 +22,63 @@ A blazingly fast, cross-platform CLI tool for code repository analysis and intel
 
 ### Installation
 
+#### 📦 Pre-built Binaries (Recommended)
+
+**Quick Install (Unix/Linux/macOS)**
 ```bash
-# Install from source (requires Rust 1.70+)
+# Auto-detect platform and install
+curl -fsSL https://raw.githubusercontent.com/chriswessels/nomnom/main/install.sh | bash
+```
+
+**Manual Platform-Specific Install:**
+
+**Linux (x86_64)**
+```bash
+curl -L https://github.com/chriswessels/nomnom/releases/latest/download/nomnom-linux-x86_64.tar.gz | tar xz
+sudo mv nomnom /usr/local/bin/
+```
+
+**Linux (ARM64)**
+```bash
+curl -L https://github.com/chriswessels/nomnom/releases/latest/download/nomnom-linux-aarch64.tar.gz | tar xz
+sudo mv nomnom /usr/local/bin/
+```
+
+**macOS (Intel)**
+```bash
+curl -L https://github.com/chriswessels/nomnom/releases/latest/download/nomnom-macos-x86_64.tar.gz | tar xz
+sudo mv nomnom /usr/local/bin/
+```
+
+**macOS (Apple Silicon)**
+```bash
+curl -L https://github.com/chriswessels/nomnom/releases/latest/download/nomnom-macos-aarch64.tar.gz | tar xz
+sudo mv nomnom /usr/local/bin/
+```
+
+**Windows**
+1. Download `nomnom-windows-x86_64.zip` from [releases](https://github.com/chriswessels/nomnom/releases/latest)
+2. Extract the executable
+3. Add the directory to your PATH, or copy `nomnom.exe` to a directory already in PATH
+
+**Alternative Windows (PowerShell)**
+```powershell
+# Download and add to PATH (requires PowerShell as Administrator)
+Invoke-WebRequest -Uri "https://github.com/chriswessels/nomnom/releases/latest/download/nomnom-windows-x86_64.zip" -OutFile "nomnom.zip"
+Expand-Archive -Path "nomnom.zip" -DestinationPath "$env:LOCALAPPDATA\nomnom"
+[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$env:LOCALAPPDATA\nomnom", [System.EnvironmentVariableTarget]::User)
+```
+
+#### 🔧 From Source (requires Rust 1.83+)
+```bash
 git clone https://github.com/chriswessels/nomnom
 cd nomnom
 cargo install --path .
+```
 
-# Or download pre-built binaries from releases
+#### 📋 Verify Installation
+```bash
+nomnom --version
 ```
 
 ### Basic Usage
