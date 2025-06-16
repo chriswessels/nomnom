@@ -247,8 +247,6 @@ impl Processor {
 mod tests {
     use super::*;
     use crate::config::Config;
-    use std::fs;
-    use tempfile::TempDir;
     
     fn create_test_processor() -> Processor {
         Processor::new(Config::default())
