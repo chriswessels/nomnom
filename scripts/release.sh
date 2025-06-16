@@ -89,19 +89,68 @@ if git remote get-url origin > /dev/null 2>&1; then
     fi
 fi
 
-# Run tests before creating release
+# Run full CI quality checks
+print_info "Running quality checks (same as CI)..."
+
+# Check formatting
+print_info "Checking code formatting..."
+if ! cargo fmt --all -- --check; then
+    print_error "Code formatting check failed. Run 'cargo fmt' to fix formatting."
+    exit 1
+fi
+
+# Run clippy
+print_info "Running clippy lints..."
+if ! cargo clippy --all-targets --all-features -- -D warnings; then
+    print_error "Clippy lints failed. Please fix all warnings before creating a release."
+    exit 1
+fi
+
+# Run tests
 print_info "Running tests..."
-if ! cargo test --quiet; then
+if ! cargo test --verbose; then
     print_error "Tests failed. Please fix them before creating a release."
     exit 1
 fi
 
-# Check if build works
-print_info "Checking if project builds..."
-if ! cargo build --release --quiet; then
-    print_error "Build failed. Please fix build errors before creating a release."
+# Check release build
+print_info "Checking release build..."
+if ! cargo build --release --verbose; then
+    print_error "Release build failed. Please fix build errors before creating a release."
     exit 1
 fi
+
+# Test CLI functionality (basic smoke tests)
+print_info "Running CLI smoke tests..."
+if ! cargo run --release -- --help > /dev/null; then
+    print_error "CLI help command failed"
+    exit 1
+fi
+
+if ! cargo run --release -- --init-config > /dev/null; then
+    print_error "CLI init-config command failed"
+    exit 1
+fi
+
+# Test different output formats on the current project
+print_info "Testing output formats..."
+for format in txt json md xml; do
+    if ! cargo run --release -- --format "$format" --quiet src/main.rs > "/tmp/nomnom_test_$format" 2>/dev/null; then
+        print_error "Failed to generate $format output"
+        exit 1
+    fi
+    
+    # Verify output is not empty
+    if [ ! -s "/tmp/nomnom_test_$format" ]; then
+        print_error "$format output is empty"
+        exit 1
+    fi
+done
+
+# Clean up test files
+rm -f /tmp/nomnom_test_*
+
+print_success "All quality checks passed!"
 
 # Show confirmation
 echo

@@ -24,9 +24,13 @@ Automates the release process for Nomnom by creating and pushing version tags.
    - Locally: `git tag -l`
    - Remotely: `git ls-remote --tags origin`
 
-4. **Runs quality checks**:
-   - `cargo test` - Ensures all tests pass
-   - `cargo build --release` - Verifies release build works
+4. **Runs comprehensive quality checks** (same as CI):
+   - `cargo fmt --all -- --check` - Code formatting
+   - `cargo clippy --all-targets --all-features -- -D warnings` - Linting
+   - `cargo test --verbose` - All tests pass
+   - `cargo build --release --verbose` - Release build works
+   - CLI smoke tests for `--help` and `--init-config`
+   - Output format validation (TXT, JSON, MD, XML)
 
 5. **Creates and pushes tag**:
    - Creates annotated tag with changelog
