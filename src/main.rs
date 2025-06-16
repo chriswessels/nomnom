@@ -176,8 +176,15 @@ fn run(cli: Cli) -> Result<()> {
     let output = writer.write_output(&processed_files)?;
     
     if cli.out == "-" {
-        // Write to stdout
-        print!("{}", output);
+        // Write to stdout with broken pipe handling
+        match std::io::Write::write_all(&mut std::io::stdout(), output.as_bytes()) {
+            Ok(_) => {},
+            Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
+                // Gracefully handle broken pipe (e.g., when piping to head/tail)
+                std::process::exit(0);
+            },
+            Err(e) => return Err(e.into()),
+        }
     } else {
         // Write to file
         std::fs::write(&cli.out, output)?;
