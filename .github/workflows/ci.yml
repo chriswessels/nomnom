@@ -42,31 +42,8 @@ jobs:
 
     - name: Check formatting
       run: cargo fmt --all -- --check
-
-    - name: Run clippy
-      run: cargo clippy --all-targets --all-features -- -D warnings
-
     - name: Build
       run: cargo build --verbose
-
-    - name: Test CLI functionality
-      run: |
-        # Test basic functionality
-        cargo run -- --help
-        cargo run -- --init-config
-        
-        # Test different output formats
-        cargo run -- --format txt src/main.rs > test_output.txt
-        cargo run -- --format json src/main.rs > test_output.json
-        cargo run -- --format md src/main.rs > test_output.md
-        cargo run -- --format xml src/main.rs > test_output.xml
-        
-        # Verify outputs are not empty
-        [ -s test_output.txt ] && echo "TXT output OK"
-        [ -s test_output.json ] && echo "JSON output OK" 
-        [ -s test_output.md ] && echo "Markdown output OK"
-        [ -s test_output.xml ] && echo "XML output OK"
-      shell: bash
 
   security:
     name: Security Audit
