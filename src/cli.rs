@@ -21,7 +21,7 @@ pub struct Cli {
     #[arg(long)]
     pub max_size: Option<String>,
 
-    /// Suppress info logs
+    /// Suppress info logs (auto-enabled when outputting to stdout)
     #[arg(short = 'q', long)]
     pub quiet: bool,
 

@@ -30,7 +30,8 @@ fn main() -> anyhow::Result<()> {
     }
     
     // Initialize logging
-    init_logging(cli.quiet)?;
+    let output_to_stdout = cli.out == "-";
+    init_logging(cli.quiet, output_to_stdout)?;
     
     info!("NOMNOM v{} ({})", VERSION, GIT_SHA);
     info!("Built at: {}", BUILD_TIMESTAMP);
@@ -48,8 +49,9 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-fn init_logging(quiet: bool) -> anyhow::Result<()> {
-    let filter = if quiet {
+fn init_logging(quiet: bool, output_to_stdout: bool) -> anyhow::Result<()> {
+    // If outputting to stdout, be more conservative with logging
+    let filter = if quiet || output_to_stdout {
         EnvFilter::builder()
             .with_default_directive(LevelFilter::ERROR.into())
             .from_env_lossy()
@@ -63,6 +65,7 @@ fn init_logging(quiet: bool) -> anyhow::Result<()> {
         .with_env_filter(filter)
         .with_target(false)
         .with_level(true)
+        .with_writer(std::io::stderr) // Always write logs to stderr
         .init();
     
     Ok(())

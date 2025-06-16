@@ -32,17 +32,20 @@ cargo install --path .
 ### Basic Usage
 
 ```bash
-# Analyze current directory, output to stdout
+# Analyze current directory, output to stdout (logs auto-suppressed)
 nomnom
 
-# Generate markdown documentation
+# Generate markdown documentation (logs visible)
 nomnom --format md --out docs.md
 
 # Process specific directory with custom config
 nomnom --config my-config.yml /path/to/project
 
-# JSON output for programmatic use
-nomnom --format json --threads 8 > analysis.json
+# JSON output for programmatic use (clean piping)
+nomnom --format json --threads 8 | jq '.'
+
+# Copy to clipboard without log interference
+nomnom --format txt . | pbcopy
 ```
 
 ## 📖 Usage Guide
@@ -61,7 +64,7 @@ Options:
                                [possible values: txt, md, json, xml]
   -t, --threads <THREADS>      Worker threads ('auto' or number) [default: auto]
       --max-size <MAX_SIZE>    Max file size before stubbing (K/M/G suffix)
-  -q, --quiet                  Suppress info logs
+  -q, --quiet                  Suppress info logs (auto-enabled when outputting to stdout)
       --config <CONFIG>        Additional config file
       --init-config           Print default YAML configuration
   -h, --help                   Print help
@@ -177,6 +180,26 @@ Override any setting with `NOMNOM_*` environment variables:
 export NOMNOM_THREADS=16
 export NOMNOM_FORMAT=json
 export NOMNOM_MAX_SIZE=10M
+```
+
+### Logging Behavior
+
+Nomnom automatically adjusts its logging behavior for optimal UX:
+
+- **Stdout output** (`-o -` or default): Logs are automatically suppressed to keep output clean for piping
+- **File output** (`-o filename`): INFO logs are shown to provide processing feedback
+- **Quiet mode** (`--quiet`): Only ERROR logs are shown regardless of output destination
+- **Debug mode** (`RUST_LOG=debug`): Full debug logging to stderr for troubleshooting
+
+```bash
+# Clean output for piping (no logs)
+nomnom | pbcopy
+
+# Verbose output when writing to file
+nomnom --out analysis.txt  # Shows progress logs
+
+# Force quiet mode
+nomnom --quiet --out analysis.txt  # No logs even for file output
 ```
 
 ## 🔒 Security Features
