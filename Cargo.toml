@@ -11,7 +11,7 @@ documentation = "https://github.com/chriswessels/nomnom#readme"
 keywords = ["cli", "code-analysis", "ai", "directory-tree", "file-processing"]
 categories = ["command-line-utilities", "development-tools", "text-processing"]
 readme = "README.md"
-rust-version = "1.70"
+rust-version = "1.83"
 
 [dependencies]
 # CLI parsing
