@@ -1,0 +1,62 @@
+use clap::{Parser, ValueEnum};
+use std::path::PathBuf;
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+#[command(name = "nomnom")]
+pub struct Cli {
+    /// Output file ('-' for stdout)
+    #[arg(short = 'o', long, default_value = "-")]
+    pub out: String,
+
+    /// Output format
+    #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Txt)]
+    pub format: OutputFormat,
+
+    /// Number of worker threads ('auto' or positive integer)
+    #[arg(short = 't', long, default_value = "auto")]
+    pub threads: String,
+
+    /// Maximum file size before stubbing (supports K/M/G suffix)
+    #[arg(long)]
+    pub max_size: Option<String>,
+
+    /// Suppress info logs
+    #[arg(short = 'q', long)]
+    pub quiet: bool,
+
+    /// Additional config file (highest precedence)
+    #[arg(long)]
+    pub config: Option<PathBuf>,
+
+    /// Print default YAML configuration and exit
+    #[arg(long)]
+    pub init_config: bool,
+
+    /// Source file or directory to process
+    #[arg(default_value = ".")]
+    pub source: PathBuf,
+}
+
+#[derive(Clone, Debug, ValueEnum)]
+pub enum OutputFormat {
+    /// Plain text format
+    Txt,
+    /// Markdown format with code blocks
+    Md,
+    /// JSON structured output
+    Json,
+    /// Minimal XML with CDATA
+    Xml,
+}
+
+impl OutputFormat {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            OutputFormat::Txt => "txt",
+            OutputFormat::Md => "md", 
+            OutputFormat::Json => "json",
+            OutputFormat::Xml => "xml",
+        }
+    }
+}
