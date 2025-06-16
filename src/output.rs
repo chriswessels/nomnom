@@ -3,7 +3,7 @@ use crate::{
     processor::{FileContent, ProcessedFile},
 };
 use serde_json::{json, Value};
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, fmt, path::Path};
 
 pub trait OutputWriter {
     fn write_output(&self, files: &[ProcessedFile]) -> Result<String>;
@@ -21,9 +21,9 @@ impl DirectoryTree {
         // Collect all directory paths
         for file in files {
             let path = Path::new(&file.path);
-            let mut ancestors = path.ancestors().skip(1); // Skip the file itself
+            let ancestors = path.ancestors().skip(1); // Skip the file itself
 
-            while let Some(ancestor) = ancestors.next() {
+            for ancestor in ancestors {
                 if ancestor != Path::new("") && ancestor != Path::new(".") {
                     dirs.insert(ancestor.to_string_lossy().to_string());
                 }
@@ -69,9 +69,11 @@ impl DirectoryTree {
 
         Self { entries }
     }
+}
 
-    pub fn to_string(&self) -> String {
-        self.entries.join("\n")
+impl fmt::Display for DirectoryTree {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.entries.join("\n"))
     }
 }
 
@@ -82,7 +84,7 @@ impl OutputWriter for TxtWriter {
         let tree = DirectoryTree::new(files);
         let mut output = String::new();
 
-        output.push_str(&tree.to_string());
+        output.push_str(&format!("{}", tree));
         output.push('\n');
         output.push('\n');
 
@@ -118,7 +120,7 @@ impl OutputWriter for MarkdownWriter {
 
         output.push_str("## Directory Tree\n");
         output.push_str("```text\n");
-        output.push_str(&tree.to_string());
+        output.push_str(&format!("{}", tree));
         output.push_str("\n```\n\n");
         output.push_str("---\n\n");
 
@@ -190,7 +192,7 @@ impl OutputWriter for JsonWriter {
             .collect();
 
         let output = json!({
-            "directory_tree": tree.to_string(),
+            "directory_tree": format!("{}", tree),
             "files": files_json
         });
 
@@ -211,7 +213,7 @@ impl OutputWriter for XmlWriter {
         output.push('\n');
 
         output.push_str("<directory_tree>\n");
-        output.push_str(&tree.to_string());
+        output.push_str(&format!("{}", tree));
         output.push_str("\n</directory_tree>\n\n");
 
         for file in files {
@@ -274,7 +276,7 @@ mod tests {
     fn test_directory_tree() {
         let files = create_test_files();
         let tree = DirectoryTree::new(&files);
-        let tree_str = tree.to_string();
+        let tree_str = format!("{}", tree);
 
         assert!(tree_str.contains("+ ."));
         assert!(tree_str.contains("+ src"));
