@@ -54,7 +54,7 @@ impl OutputFormat {
     pub fn as_str(&self) -> &'static str {
         match self {
             OutputFormat::Txt => "txt",
-            OutputFormat::Md => "md", 
+            OutputFormat::Md => "md",
             OutputFormat::Json => "json",
             OutputFormat::Xml => "xml",
         }
