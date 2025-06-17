@@ -10,16 +10,21 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Function to print colored output
-print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
-print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
-print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+print_info() { printf "${BLUE}[INFO]${NC} %s\n" "$1" >&2; }
+print_success() { printf "${GREEN}[SUCCESS]${NC} %s\n" "$1" >&2; }
+print_warning() { printf "${YELLOW}[WARNING]${NC} %s\n" "$1" >&2; }
+print_error() { printf "${RED}[ERROR]${NC} %s\n" "$1" >&2; }
 
 # Detect platform and architecture
 detect_platform() {
-    local os arch
+    local os arch uname_s uname_m
     
-    case "$(uname -s)" in
+    uname_s="$(uname -s)"
+    uname_m="$(uname -m)"
+    
+    print_info "System info: OS='${uname_s}', Arch='${uname_m}'"
+    
+    case "${uname_s}" in
         Linux*)
             os="linux"
             ;;
@@ -27,13 +32,13 @@ detect_platform() {
             os="macos"
             ;;
         *)
-            print_error "Unsupported operating system: $(uname -s)"
+            print_error "Unsupported operating system: ${uname_s}"
             print_info "Please download manually from: https://github.com/chriswessels/nomnom/releases/latest"
             exit 1
             ;;
     esac
     
-    case "$(uname -m)" in
+    case "${uname_m}" in
         x86_64|amd64)
             arch="x86_64"
             ;;
@@ -41,12 +46,13 @@ detect_platform() {
             arch="aarch64"
             ;;
         *)
-            print_error "Unsupported architecture: $(uname -m)"
+            print_error "Unsupported architecture: ${uname_m}"
             print_info "Please download manually from: https://github.com/chriswessels/nomnom/releases/latest"
             exit 1
             ;;
     esac
     
+    print_info "Mapped to: OS='${os}', Arch='${arch}'"
     echo "${os}-${arch}"
 }
 
@@ -59,8 +65,10 @@ install_nomnom() {
     download_url="https://github.com/chriswessels/nomnom/releases/latest/download/${target_file}"
     temp_dir=$(mktemp -d)
     
-    print_info "Detected platform: ${platform}"
-    print_info "Downloading from: ${download_url}"
+    print_info "Final platform string: '${platform}'"
+    print_info "Target file: '${target_file}'"
+    print_info "Download URL: '${download_url}'"
+    print_info "Temp directory: '${temp_dir}'"
     
     # Download and extract
     if ! curl -fsSL "${download_url}" | tar xz -C "${temp_dir}"; then
@@ -106,7 +114,7 @@ install_nomnom() {
 }
 
 # Show banner
-echo -e "${BLUE}"
+printf "${BLUE}"
 cat << 'EOF'
   _   _                   _   _                 
  | \ | | ___  _ __ ___   | \ | | ___  _ __ ___  
@@ -115,7 +123,7 @@ cat << 'EOF'
  |_| \_|\___/|_| |_| |_| |_| \_|\___/|_| |_| |_|
                                                
 EOF
-echo -e "${NC}"
+printf "${NC}"
 print_info "Nomnom installer - blazingly fast code repository analysis"
 echo
 
