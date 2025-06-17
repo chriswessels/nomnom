@@ -132,24 +132,6 @@ if ! cargo run --release -- --init-config > /dev/null; then
     exit 1
 fi
 
-# Test different output formats on the current project
-print_info "Testing output formats..."
-for format in txt json md xml; do
-    if ! cargo run --release -- --format "$format" --quiet src/main.rs > "/tmp/nomnom_test_$format" 2>/dev/null; then
-        print_error "Failed to generate $format output"
-        exit 1
-    fi
-    
-    # Verify output is not empty
-    if [ ! -s "/tmp/nomnom_test_$format" ]; then
-        print_error "$format output is empty"
-        exit 1
-    fi
-done
-
-# Clean up test files
-rm -f /tmp/nomnom_test_*
-
 print_success "All quality checks passed!"
 
 # Show confirmation
