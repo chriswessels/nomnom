@@ -82,21 +82,14 @@ pub fn tokens_len(chars: usize) -> usize {
 }
 
 fn print_default_config() {
-    let default_config = r#"threads: auto              # "auto" or positive integer
-max_size: "4M"             # bytes, supports K/M/G suffix
-format: txt                # txt | md | json | xml
-ignore_git: true           # respect .gitignore and .ignore files
-
-truncate:
-  style_tags: true         # replace <style>…</style> bodies with "…"
-  svg: true                # replace <svg>…</svg> bodies with "…"
-  big_json_keys: 50        # >0 ⇒ summarise large JSON files
-
-filters:
-  - type: redact
-    pattern: "(?i)(password|api[_-]?key)\\s*[:=]\\s*\\S+"
-"#;
-    println!("{}", default_config);
+    let default_config = Config::default();
+    match serde_yaml::to_string(&default_config) {
+        Ok(yaml) => print!("{}", yaml),
+        Err(e) => {
+            eprintln!("Error generating default config: {}", e);
+            std::process::exit(1);
+        }
+    }
 }
 
 fn validate_cli_arguments(cli: &Cli) -> Result<()> {
