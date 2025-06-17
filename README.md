@@ -22,52 +22,14 @@ A blazingly fast, cross-platform CLI tool for code repository analysis and intel
 
 ### Installation
 
-#### 📦 Pre-built Binaries (Recommended)
+#### 📦 Pre-built Binaries
 
 **Quick Install (Unix/Linux/macOS)**
 ```bash
-# Auto-detect platform and install
 curl -fsSL https://raw.githubusercontent.com/chriswessels/nomnom/main/install.sh | bash
 ```
 
-**Manual Platform-Specific Install:**
-
-**Linux (x86_64)**
-```bash
-curl -L https://github.com/chriswessels/nomnom/releases/latest/download/nomnom-linux-x86_64.tar.gz | tar xz
-sudo mv nomnom /usr/local/bin/
-```
-
-**Linux (ARM64)**
-```bash
-curl -L https://github.com/chriswessels/nomnom/releases/latest/download/nomnom-linux-aarch64.tar.gz | tar xz
-sudo mv nomnom /usr/local/bin/
-```
-
-**macOS (Intel)**
-```bash
-curl -L https://github.com/chriswessels/nomnom/releases/latest/download/nomnom-macos-x86_64.tar.gz | tar xz
-sudo mv nomnom /usr/local/bin/
-```
-
-**macOS (Apple Silicon)**
-```bash
-curl -L https://github.com/chriswessels/nomnom/releases/latest/download/nomnom-macos-aarch64.tar.gz | tar xz
-sudo mv nomnom /usr/local/bin/
-```
-
-**Windows**
-1. Download `nomnom-windows-x86_64.zip` from [releases](https://github.com/chriswessels/nomnom/releases/latest)
-2. Extract the executable
-3. Add the directory to your PATH, or copy `nomnom.exe` to a directory already in PATH
-
-**Alternative Windows (PowerShell)**
-```powershell
-# Download and add to PATH (requires PowerShell as Administrator)
-Invoke-WebRequest -Uri "https://github.com/chriswessels/nomnom/releases/latest/download/nomnom-windows-x86_64.zip" -OutFile "nomnom.zip"
-Expand-Archive -Path "nomnom.zip" -DestinationPath "$env:LOCALAPPDATA\nomnom"
-[Environment]::SetEnvironmentVariable("Path", $env:Path + ";$env:LOCALAPPDATA\nomnom", [System.EnvironmentVariableTarget]::User)
-```
+**Manual Install**: Download from [releases](https://github.com/chriswessels/nomnom/releases/latest) for your platform
 
 #### 🔧 From Source (requires Rust 1.83+)
 ```bash
@@ -119,88 +81,31 @@ Options:
   -q, --quiet                  Suppress info logs (auto-enabled when outputting to stdout)
       --config <CONFIG>        Additional config file
       --init-config           Print default YAML configuration
+      --validate-config       Validate configuration and show resolved values
   -h, --help                   Print help
   -V, --version               Print version
 ```
 
 ### Output Formats
 
-#### Text (TXT)
-Plain text with directory tree and file contents - perfect for AI models:
-```
-+ .
-+ src
-  - main.rs
-  - lib.rs
-
----
-### src/main.rs
-
-fn main() {
-    println!("Hello, world!");
-}
-```
-
-#### Markdown (MD)
-Beautiful documentation with syntax highlighting:
-```markdown
-## Directory Tree
-```text
-+ .
-+ src
-  - main.rs
-```
-
-### `src/main.rs`
-
-```rust
-fn main() {
-    println!("Hello, world!");
-}
-```
-```
-
-#### JSON
-Structured data for programmatic processing:
-```json
-{
-  "directory_tree": "+ .\n+ src\n  - main.rs",
-  "files": [
-    {
-      "path": "src/main.rs",
-      "content": "fn main() {\n    println!(\"Hello, world!\");\n}"
-    }
-  ]
-}
-```
-
-#### XML
-Minimal XML with CDATA sections:
-```xml
-<instructions>Read all code before answering.</instructions>
-
-<directory_tree>
-+ .
-+ src
-  - main.rs
-</directory_tree>
-
-<file path="src/main.rs"><![CDATA[
-fn main() {
-    println!("Hello, world!");
-}
-]]></file>
-```
+- **txt**: Plain text with directory tree and file contents (AI-friendly)
+- **md**: Markdown with syntax highlighting and code blocks  
+- **json**: Structured JSON for programmatic processing
+- **xml**: Minimal XML with CDATA sections
 
 ## ⚙️ Configuration
 
 Nomnom uses a powerful configuration system with deep merging across multiple layers:
 
 1. **Built-in defaults**
-2. **System config**: `/etc/nomnom/config.yml`
-3. **User config**: `~/.config/nomnom/config.yml`
-4. **Project config**: `./.nomnom.yml`
-5. **CLI arguments**
+2. **User config**: 
+   - **Linux/Unix**: `~/.config/nomnom/config.yml`
+   - **macOS**: `~/Library/Application Support/nomnom/config.yml`
+   - **Windows**: `%APPDATA%\nomnom\config.yml`
+3. **Project config**: `./.nomnom.yml`
+4. **CLI-specified config**: `--config path/to/config.yml`
+5. **Environment variables**: `NOMNOM_*` prefixed
+6. **CLI arguments** (highest precedence)
 
 ### Default Configuration
 
@@ -234,52 +139,32 @@ export NOMNOM_FORMAT=json
 export NOMNOM_MAX_SIZE=10M
 ```
 
-### Logging Behavior
+### Configuration Validation
 
-Nomnom automatically adjusts its logging behavior for optimal UX:
-
-- **Stdout output** (`-o -` or default): Logs are automatically suppressed to keep output clean for piping
-- **File output** (`-o filename`): INFO logs are shown to provide processing feedback
-- **Quiet mode** (`--quiet`): Only ERROR logs are shown regardless of output destination
-- **Debug mode** (`RUST_LOG=debug`): Full debug logging to stderr for troubleshooting
+Debug and validate your configuration:
 
 ```bash
-# Clean output for piping (no logs)
-nomnom | pbcopy
-
-# Verbose output when writing to file
-nomnom --out analysis.txt  # Shows progress logs
-
-# Force quiet mode
-nomnom --quiet --out analysis.txt  # No logs even for file output
+nomnom --validate-config                    # Show config resolution
+nomnom --validate-config --threads 8       # Test CLI overrides
 ```
 
-## 🔒 Security Features
+Shows discovered config files, final resolved values, and validation errors.
 
-Nomnom includes built-in security features to protect sensitive information:
+### Logging
 
-- **Secret Redaction**: Automatically detects and redacts passwords, API keys, and tokens
-- **Entropy Analysis**: Uses statistical analysis to identify potential secrets
-- **Pattern Matching**: Configurable regex patterns for custom secret detection
-- **Safe Defaults**: Binary files and oversized files are automatically excluded
+Logs auto-adjust for clean piping:
+- **Stdout**: Logs suppressed (clean for pipes)
+- **File output**: Shows progress logs  
+- **`--quiet`**: Only errors shown
+- **`RUST_LOG=debug`**: Full debug output
 
-Example redacted output:
-```
-password=██REDACTED██
-api_key=██REDACTED██
-```
+## 🔒 Security & Filtering
 
-## 🎯 Smart Filtering
-
-Nomnom intelligently processes different file types:
-
-- **Binary Detection**: Uses MIME type detection and content inspection
-- **Size Limits**: Configurable file size limits with graceful degradation
-- **Content Truncation**: 
-  - CSS files → `/* CSS content simplified */`
-  - Large JSON → Summary with top-level keys
-  - HTML `<style>` tags → `<style>…</style>`
-  - SVG elements → `<svg>…</svg>`
+- **Secret redaction**: Auto-detects passwords, API keys, tokens
+- **Binary detection**: MIME type and content analysis  
+- **Size limits**: Configurable file size limits with stubs
+- **Content truncation**: CSS, JSON, SVG simplification
+- **Git integration**: Respects `.gitignore` and `.ignore` files
 
 ## 🏗️ For Contributors
 

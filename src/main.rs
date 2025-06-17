@@ -29,6 +29,11 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
+    // Handle --validate-config before logging setup
+    if cli.validate_config {
+        return validate_configuration(cli);
+    }
+
     // Initialize logging
     let output_to_stdout = cli.out == "-";
     init_logging(cli.quiet, output_to_stdout)?;
@@ -89,7 +94,165 @@ filters:
     println!("{}", default_config);
 }
 
+fn validate_cli_arguments(cli: &Cli) -> Result<()> {
+    // Validate threads argument
+    if cli.threads != "auto" {
+        cli.threads
+            .parse::<u32>()
+            .map_err(|_| error::NomnomError::InvalidThreadCount(cli.threads.clone()))?;
+        
+        let thread_count = cli.threads.parse::<u32>().unwrap();
+        if thread_count == 0 {
+            return Err(error::NomnomError::InvalidThreadCount(
+                "Thread count must be greater than 0".to_string(),
+            ));
+        }
+    }
+    
+    // Validate max_size argument if provided
+    if let Some(ref max_size) = cli.max_size {
+        config::parse_size(max_size)?;
+    }
+    
+    Ok(())
+}
+
+fn validate_configuration(cli: Cli) -> anyhow::Result<()> {
+    println!("🔍 NOMNOM Configuration Validation");
+    println!("═══════════════════════════════════");
+    println!();
+    
+    // Validate CLI arguments first using shared validation
+    if let Err(e) = validate_cli_arguments(&cli) {
+        println!("❌ CLI Argument Errors:");
+        println!("   • {}", e);
+        println!();
+        std::process::exit(1);
+    }
+    
+    let config_path = cli.config.clone();
+    match Config::load_with_validation(config_path) {
+        Ok(validation) => {
+            print_config_validation(&validation, &cli);
+            
+            if !validation.validation_errors.is_empty() {
+                std::process::exit(1);
+            }
+            
+            println!("✅ Configuration validation completed successfully!");
+            Ok(())
+        }
+        Err(e) => {
+            println!("❌ Configuration validation failed: {}", e);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn print_config_validation(validation: &config::ConfigValidation, cli: &Cli) {
+    // Print discovered config files
+    println!("📁 Configuration Files Discovery:");
+    for file in &validation.discovered_files {
+        let status = if file.exists {
+            if file.readable {
+                "✅ Found & Readable"
+            } else {
+                "⚠️  Found but not readable"
+            }
+        } else {
+            "❌ Not found"
+        };
+        
+        println!("   {} - {}", file.path, status);
+        
+        if file.exists && file.readable {
+            if let Some(ref preview) = file.content_preview {
+                println!("      Preview:");
+                for line in preview.lines() {
+                    println!("        {}", line);
+                }
+            }
+        }
+    }
+    println!();
+    
+    // Print validation errors
+    if !validation.validation_errors.is_empty() {
+        println!("❌ Validation Errors:");
+        for error in &validation.validation_errors {
+            println!("   • {}", error);
+        }
+        println!();
+    }
+    
+    // Print validation warnings
+    if !validation.validation_warnings.is_empty() {
+        println!("⚠️  Validation Warnings:");
+        for warning in &validation.validation_warnings {
+            println!("   • {}", warning);
+        }
+        println!();
+    }
+    
+    // Print final resolved configuration
+    println!("⚙️  Final Resolved Configuration:");
+    println!("   threads: {} ({})", 
+             match validation.config.threads {
+                 config::ThreadsConfig::Auto(ref s) => s.clone(),
+                 config::ThreadsConfig::Count(n) => n.to_string(),
+             }, 
+             validation.sources.threads);
+    
+    println!("   max_size: {} → {} bytes ({})", 
+             validation.config.max_size, 
+             validation.config.resolve_max_size().unwrap_or(0),
+             validation.sources.max_size);
+    
+    println!("   format: {} ({})", 
+             validation.config.format, 
+             validation.sources.format);
+    
+    println!("   ignore_git: {} ({})", 
+             validation.config.ignore_git, 
+             validation.sources.ignore_git);
+    
+    println!("   truncate:");
+    println!("     style_tags: {} ({})", 
+             validation.config.truncate.style_tags, 
+             validation.sources.truncate_style_tags);
+    println!("     svg: {} ({})", 
+             validation.config.truncate.svg, 
+             validation.sources.truncate_svg);
+    println!("     big_json_keys: {} ({})", 
+             validation.config.truncate.big_json_keys, 
+             validation.sources.truncate_big_json_keys);
+    
+    println!("   filters: {} filter(s) configured ({})", 
+             validation.config.filters.len(), 
+             validation.sources.filters);
+    
+    for (i, filter) in validation.config.filters.iter().enumerate() {
+        println!("     [{}] type: {}, pattern: {}", i + 1, filter.r#type, filter.pattern);
+    }
+    
+    // Show CLI overrides
+    println!();
+    println!("🔧 CLI Overrides Applied:");
+    if let Some(ref max_size) = cli.max_size {
+        println!("   max_size: {} (from --max-size)", max_size);
+    }
+    println!("   format: {} (from --format)", cli.format.as_str());
+    if cli.threads != "auto" {
+        println!("   threads: {} (from --threads)", cli.threads);
+    }
+    
+    println!();
+}
+
 fn run(cli: Cli) -> Result<()> {
+    // Validate CLI arguments first
+    validate_cli_arguments(&cli)?;
+    
     // Load configuration
     let mut config = Config::load(cli.config)?;
 
@@ -101,10 +264,7 @@ fn run(cli: Cli) -> Result<()> {
 
     // Resolve thread count
     let thread_count = if cli.threads != "auto" {
-        cli.threads
-            .parse::<u32>()
-            .map_err(|_| error::NomnomError::InvalidThreadCount(cli.threads.clone()))?
-            as usize
+        cli.threads.parse::<u32>().unwrap() as usize  // Safe unwrap since we validated above
     } else {
         config.resolve_threads()?
     };

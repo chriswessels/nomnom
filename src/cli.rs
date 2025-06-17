@@ -33,6 +33,10 @@ pub struct Cli {
     #[arg(long)]
     pub init_config: bool,
 
+    /// Validate configuration and show resolved values
+    #[arg(long)]
+    pub validate_config: bool,
+
     /// Source file or directory to process
     #[arg(default_value = ".")]
     pub source: PathBuf,
