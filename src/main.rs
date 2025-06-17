@@ -136,7 +136,7 @@ fn validate_configuration(cli: Cli) -> anyhow::Result<()> {
     }
     
     let config_path = cli.config.clone();
-    match Config::load_with_validation(config_path) {
+    match Config::load_with_validation(config_path, &cli) {
         Ok(validation) => {
             print_config_validation(&validation, &cli);
             
@@ -154,29 +154,16 @@ fn validate_configuration(cli: Cli) -> anyhow::Result<()> {
     }
 }
 
-fn print_config_validation(validation: &config::ConfigValidation, cli: &Cli) {
+fn print_config_validation(validation: &config::ConfigValidation, _cli: &Cli) {
     // Print discovered config files
-    println!("📁 Configuration Files Discovery:");
+    println!("📁 Configuration Files:");
     for file in &validation.discovered_files {
-        let status = if file.exists {
-            if file.readable {
-                "✅ Found & Readable"
-            } else {
-                "⚠️  Found but not readable"
-            }
-        } else {
-            "❌ Not found"
-        };
-        
-        println!("   {} - {}", file.path, status);
-        
         if file.exists && file.readable {
-            if let Some(ref preview) = file.content_preview {
-                println!("      Preview:");
-                for line in preview.lines() {
-                    println!("        {}", line);
-                }
-            }
+            println!("   ✅ {}", file.path);
+        } else if file.exists && !file.readable {
+            println!("   ⚠️  {} (not readable)", file.path);
+        } else {
+            println!("   ❌ {} (not found)", file.path);
         }
     }
     println!();
@@ -200,55 +187,28 @@ fn print_config_validation(validation: &config::ConfigValidation, cli: &Cli) {
     }
     
     // Print final resolved configuration
-    println!("⚙️  Final Resolved Configuration:");
-    println!("   threads: {} ({})", 
+    println!("⚙️  Final Configuration:");
+    println!("   threads: {}", 
              match validation.config.threads {
                  config::ThreadsConfig::Auto(ref s) => s.clone(),
                  config::ThreadsConfig::Count(n) => n.to_string(),
-             }, 
-             validation.sources.threads);
+             });
     
-    println!("   max_size: {} → {} bytes ({})", 
+    println!("   max_size: {} ({} bytes)", 
              validation.config.max_size, 
-             validation.config.resolve_max_size().unwrap_or(0),
-             validation.sources.max_size);
+             validation.config.resolve_max_size().unwrap_or(0));
     
-    println!("   format: {} ({})", 
-             validation.config.format, 
-             validation.sources.format);
-    
-    println!("   ignore_git: {} ({})", 
-             validation.config.ignore_git, 
-             validation.sources.ignore_git);
+    println!("   format: {}", validation.config.format);
+    println!("   ignore_git: {}", validation.config.ignore_git);
     
     println!("   truncate:");
-    println!("     style_tags: {} ({})", 
-             validation.config.truncate.style_tags, 
-             validation.sources.truncate_style_tags);
-    println!("     svg: {} ({})", 
-             validation.config.truncate.svg, 
-             validation.sources.truncate_svg);
-    println!("     big_json_keys: {} ({})", 
-             validation.config.truncate.big_json_keys, 
-             validation.sources.truncate_big_json_keys);
+    println!("     style_tags: {}", validation.config.truncate.style_tags);
+    println!("     svg: {}", validation.config.truncate.svg);
+    println!("     big_json_keys: {}", validation.config.truncate.big_json_keys);
     
-    println!("   filters: {} filter(s) configured ({})", 
-             validation.config.filters.len(), 
-             validation.sources.filters);
-    
+    println!("   filters: {} configured", validation.config.filters.len());
     for (i, filter) in validation.config.filters.iter().enumerate() {
-        println!("     [{}] type: {}, pattern: {}", i + 1, filter.r#type, filter.pattern);
-    }
-    
-    // Show CLI overrides
-    println!();
-    println!("🔧 CLI Overrides Applied:");
-    if let Some(ref max_size) = cli.max_size {
-        println!("   max_size: {} (from --max-size)", max_size);
-    }
-    println!("   format: {} (from --format)", cli.format.as_str());
-    if cli.threads != "auto" {
-        println!("   threads: {} (from --threads)", cli.threads);
+        println!("     [{}] {}: {}", i + 1, filter.r#type, filter.pattern);
     }
     
     println!();

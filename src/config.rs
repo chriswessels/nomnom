@@ -39,22 +39,9 @@ pub struct FilterConfig {
 #[derive(Debug, Clone)]
 pub struct ConfigValidation {
     pub config: Config,
-    pub sources: ConfigSources,
     pub discovered_files: Vec<ConfigFile>,
     pub validation_errors: Vec<String>,
     pub validation_warnings: Vec<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ConfigSources {
-    pub threads: String,
-    pub max_size: String,
-    pub format: String,
-    pub ignore_git: String,
-    pub truncate_style_tags: String,
-    pub truncate_svg: String,
-    pub truncate_big_json_keys: String,
-    pub filters: String,
 }
 
 #[derive(Debug, Clone)]
@@ -138,7 +125,7 @@ impl Config {
         parse_size(&self.max_size)
     }
 
-    pub fn load_with_validation(extra_config: Option<PathBuf>) -> Result<ConfigValidation> {
+    pub fn load_with_validation(extra_config: Option<PathBuf>, _cli: &crate::cli::Cli) -> Result<ConfigValidation> {
         let mut discovered_files = Vec::new();
         let mut validation_errors = Vec::new();
         let mut validation_warnings = Vec::new();
@@ -215,21 +202,8 @@ impl Config {
             validation_warnings.push("No filters configured - sensitive data may not be redacted".to_string());
         }
 
-        // Create sources tracking (simplified for now)
-        let sources = ConfigSources {
-            threads: "Default -> CLI override".to_string(),
-            max_size: determine_config_source("max_size", &discovered_files),
-            format: "Default -> CLI override".to_string(),
-            ignore_git: determine_config_source("ignore_git", &discovered_files),
-            truncate_style_tags: determine_config_source("truncate.style_tags", &discovered_files),
-            truncate_svg: determine_config_source("truncate.svg", &discovered_files),
-            truncate_big_json_keys: determine_config_source("truncate.big_json_keys", &discovered_files),
-            filters: determine_config_source("filters", &discovered_files),
-        };
-
         Ok(ConfigValidation {
             config,
-            sources,
             discovered_files,
             validation_errors,
             validation_warnings,
@@ -294,23 +268,3 @@ mod tests {
     }
 }
 
-fn determine_config_source(key: &str, discovered_files: &[ConfigFile]) -> String {
-    // Check if any config files exist and contain this key
-    for file in discovered_files {
-        if file.exists && file.readable {
-            if let Some(ref content) = file.content_preview {
-                if content.contains(key) {
-                    return format!("From {}", file.path);
-                }
-            }
-        }
-    }
-    
-    // Check environment variables
-    let env_key = format!("NOMNOM_{}", key.to_uppercase().replace('.', "_"));
-    if std::env::var(&env_key).is_ok() {
-        return format!("Environment variable {}", env_key);
-    }
-    
-    "Default".to_string()
-}
