@@ -77,40 +77,6 @@ impl fmt::Display for DirectoryTree {
     }
 }
 
-pub struct TxtWriter;
-
-impl OutputWriter for TxtWriter {
-    fn write_output(&self, files: &[ProcessedFile]) -> Result<String> {
-        let tree = DirectoryTree::new(files);
-        let mut output = String::new();
-
-        output.push_str(&format!("{}", tree));
-        output.push('\n');
-        output.push('\n');
-
-        for file in files {
-            output.push_str("---\n");
-            output.push_str(&format!("### {}\n", file.path));
-            output.push('\n');
-
-            match &file.content {
-                FileContent::Text(content) => {
-                    output.push_str(content);
-                }
-                FileContent::Binary(desc)
-                | FileContent::Oversized(desc)
-                | FileContent::Error(desc) => {
-                    output.push_str(desc);
-                }
-            }
-            output.push('\n');
-            output.push('\n');
-        }
-
-        Ok(output)
-    }
-}
-
 pub struct MarkdownWriter;
 
 impl OutputWriter for MarkdownWriter {
@@ -139,7 +105,7 @@ impl OutputWriter for MarkdownWriter {
                         "py" => "python",
                         "js" => "javascript",
                         "jsx" => "javascript",
-                        "ts" => "typescript", 
+                        "ts" => "typescript",
                         "tsx" => "typescript",
                         "html" | "htm" => "html",
                         "css" => "css",
@@ -162,7 +128,6 @@ impl OutputWriter for MarkdownWriter {
                         "hpp" | "hxx" | "hh" => "cpp",
                         "cs" => "csharp",
                         "go" => "go",
-                        "rs" => "rust",
                         "dart" => "dart",
                         "lua" => "lua",
                         "pl" | "pm" => "perl",
@@ -273,11 +238,10 @@ impl OutputWriter for XmlWriter {
 
 pub fn get_writer(format: &str) -> Box<dyn OutputWriter> {
     match format {
-        "txt" => Box::new(TxtWriter),
         "md" => Box::new(MarkdownWriter),
         "json" => Box::new(JsonWriter),
         "xml" => Box::new(XmlWriter),
-        _ => Box::new(TxtWriter), // Default fallback
+        _ => Box::new(MarkdownWriter), // Default fallback
     }
 }
 
@@ -317,21 +281,6 @@ mod tests {
         assert!(tree_str.contains("- main.rs"));
         assert!(tree_str.contains("- README.md"));
         assert!(tree_str.contains("- logo.png"));
-    }
-
-    #[test]
-    fn test_txt_writer() -> Result<()> {
-        let files = create_test_files();
-        let writer = TxtWriter;
-
-        let result = writer.write_output(&files)?;
-
-        assert!(result.contains("+ ."));
-        assert!(result.contains("### src/main.rs"));
-        assert!(result.contains("fn main()"));
-        assert!(result.contains("[binary skipped]"));
-
-        Ok(())
     }
 
     #[test]

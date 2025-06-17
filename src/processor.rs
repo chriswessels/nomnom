@@ -143,7 +143,9 @@ impl Processor {
                 "redact" => {
                     let before_len = result.len();
                     let content_regex = regex::Regex::new(&filter.pattern)?;
-                    result = content_regex.replace_all(&result, "██REDACTED██").to_string();
+                    result = content_regex
+                        .replace_all(&result, "██REDACTED██")
+                        .to_string();
                     if result.len() != before_len {
                         redaction_count += 1;
                     }
@@ -183,7 +185,6 @@ impl Processor {
 
         Ok(result)
     }
-
 
     fn redact_high_entropy_strings(&self, text: &str) -> Result<String> {
         use regex::Regex;
@@ -270,13 +271,15 @@ mod tests {
 
         // Test HTML file with style tags (should be truncated)
         let html_path = Path::new("test.html");
-        let html_content = r#"<html><head><style>body { color: red; font-size: 14px; }</style></head></html>"#;
+        let html_content =
+            r#"<html><head><style>body { color: red; font-size: 14px; }</style></head></html>"#;
         let result = processor.apply_filters(html_content, html_path)?;
         assert!(result.contains("<style>…</style>"));
         assert!(!result.contains("color: red"));
 
         // Test SVG in HTML file (should be truncated)
-        let svg_html_content = r#"<div><svg width="100" height="100"><circle cx="50" cy="50" r="40"/></svg></div>"#;
+        let svg_html_content =
+            r#"<div><svg width="100" height="100"><circle cx="50" cy="50" r="40"/></svg></div>"#;
         let result = processor.apply_filters(svg_html_content, html_path)?;
         assert!(result.contains("<svg>…</svg>"));
         assert!(!result.contains("circle"));

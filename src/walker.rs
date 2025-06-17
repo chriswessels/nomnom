@@ -36,7 +36,11 @@ impl Walker {
         self.walk_internal(source, thread_count)
     }
 
-    fn walk_internal<P: AsRef<Path>>(&self, source: P, thread_count: usize) -> Result<Vec<FileEntry>> {
+    fn walk_internal<P: AsRef<Path>>(
+        &self,
+        source: P,
+        thread_count: usize,
+    ) -> Result<Vec<FileEntry>> {
         let source = source.as_ref();
         let max_size = self.config.resolve_max_size()?;
 

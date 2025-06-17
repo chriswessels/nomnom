@@ -22,7 +22,6 @@ pub enum ThreadsConfig {
     Count(u32),
 }
 
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FilterConfig {
     pub r#type: String,
@@ -46,7 +45,6 @@ pub struct ConfigFile {
     pub path: String,
     pub exists: bool,
     pub readable: bool,
-    pub content_preview: Option<String>,
 }
 
 impl Default for Config {
@@ -54,7 +52,7 @@ impl Default for Config {
         Self {
             threads: ThreadsConfig::Auto("auto".to_string()),
             max_size: "4M".to_string(),
-            format: "txt".to_string(),
+            format: "md".to_string(),
             ignore_git: true,
             filters: vec![
                 FilterConfig {
@@ -139,14 +137,27 @@ impl Config {
         parse_size(&self.max_size)
     }
 
-    pub fn load_with_validation(extra_config: Option<PathBuf>, _cli: &crate::cli::Cli) -> Result<ConfigValidation> {
+    pub fn load_with_validation(
+        extra_config: Option<PathBuf>,
+        _cli: &crate::cli::Cli,
+    ) -> Result<ConfigValidation> {
         let mut discovered_files = Vec::new();
         let mut validation_errors = Vec::new();
         let mut validation_warnings = Vec::new();
 
         // Check all possible config file locations
         let config_paths = vec![
-            (dirs::config_dir().map(|d| d.join("nomnom").join("config.yml").to_string_lossy().to_string()).unwrap_or_default(), "User config"),
+            (
+                dirs::config_dir()
+                    .map(|d| {
+                        d.join("nomnom")
+                            .join("config.yml")
+                            .to_string_lossy()
+                            .to_string()
+                    })
+                    .unwrap_or_default(),
+                "User config",
+            ),
             (".nomnom.yml".to_string(), "Project config"),
         ];
 
@@ -155,19 +166,8 @@ impl Config {
                 let config_file = ConfigFile {
                     path: format!("{} ({})", path, description),
                     exists: std::path::Path::new(path).exists(),
-                    readable: std::path::Path::new(path).exists() && std::fs::read_to_string(path).is_ok(),
-                    content_preview: if std::path::Path::new(path).exists() {
-                        std::fs::read_to_string(path).ok().map(|content| {
-                            let lines: Vec<_> = content.lines().take(5).collect();
-                            if content.lines().count() > 5 {
-                                format!("{}...", lines.join("\n"))
-                            } else {
-                                lines.join("\n")
-                            }
-                        })
-                    } else {
-                        None
-                    },
+                    readable: std::path::Path::new(path).exists()
+                        && std::fs::read_to_string(path).is_ok(),
                 };
                 discovered_files.push(config_file);
             }
@@ -179,18 +179,6 @@ impl Config {
                 path: format!("{} (CLI specified)", config_path.display()),
                 exists: config_path.exists(),
                 readable: config_path.exists() && std::fs::read_to_string(config_path).is_ok(),
-                content_preview: if config_path.exists() {
-                    std::fs::read_to_string(config_path).ok().map(|content| {
-                        let lines: Vec<_> = content.lines().take(5).collect();
-                        if content.lines().count() > 5 {
-                            format!("{}...", lines.join("\n"))
-                        } else {
-                            lines.join("\n")
-                        }
-                    })
-                } else {
-                    None
-                },
             };
             discovered_files.push(config_file);
         }
@@ -209,7 +197,8 @@ impl Config {
 
         // Check for potential issues
         if config.filters.is_empty() {
-            validation_warnings.push("No filters configured - sensitive data may not be redacted".to_string());
+            validation_warnings
+                .push("No filters configured - sensitive data may not be redacted".to_string());
         }
 
         Ok(ConfigValidation {
@@ -269,15 +258,22 @@ mod tests {
     fn test_default_config() {
         let config = Config::default();
         assert_eq!(config.max_size, "4M");
-        assert_eq!(config.format, "txt");
+        assert_eq!(config.format, "md");
         assert!(config.ignore_git);
         assert_eq!(config.filters.len(), 4); // redact + 3 truncate filters
-        
+
         // Check that we have the expected filter types
-        let redact_filters: Vec<_> = config.filters.iter().filter(|f| f.r#type == "redact").collect();
-        let truncate_filters: Vec<_> = config.filters.iter().filter(|f| f.r#type == "truncate").collect();
+        let redact_filters: Vec<_> = config
+            .filters
+            .iter()
+            .filter(|f| f.r#type == "redact")
+            .collect();
+        let truncate_filters: Vec<_> = config
+            .filters
+            .iter()
+            .filter(|f| f.r#type == "truncate")
+            .collect();
         assert_eq!(redact_filters.len(), 1);
         assert_eq!(truncate_filters.len(), 3);
     }
 }
-

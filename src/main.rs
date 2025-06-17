@@ -98,7 +98,7 @@ fn validate_cli_arguments(cli: &Cli) -> Result<()> {
         cli.threads
             .parse::<u32>()
             .map_err(|_| error::NomnomError::InvalidThreadCount(cli.threads.clone()))?;
-        
+
         let thread_count = cli.threads.parse::<u32>().unwrap();
         if thread_count == 0 {
             return Err(error::NomnomError::InvalidThreadCount(
@@ -106,12 +106,12 @@ fn validate_cli_arguments(cli: &Cli) -> Result<()> {
             ));
         }
     }
-    
+
     // Validate max_size argument if provided
     if let Some(ref max_size) = cli.max_size {
         config::parse_size(max_size)?;
     }
-    
+
     Ok(())
 }
 
@@ -119,7 +119,7 @@ fn validate_configuration(cli: Cli) -> anyhow::Result<()> {
     println!("🔍 NOMNOM Configuration Validation");
     println!("═══════════════════════════════════");
     println!();
-    
+
     // Validate CLI arguments first using shared validation
     if let Err(e) = validate_cli_arguments(&cli) {
         println!("❌ CLI Argument Errors:");
@@ -127,16 +127,16 @@ fn validate_configuration(cli: Cli) -> anyhow::Result<()> {
         println!();
         std::process::exit(1);
     }
-    
+
     let config_path = cli.config.clone();
     match Config::load_with_validation(config_path, &cli) {
         Ok(validation) => {
             print_config_validation(&validation, &cli);
-            
+
             if !validation.validation_errors.is_empty() {
                 std::process::exit(1);
             }
-            
+
             println!("✅ Configuration validation completed successfully!");
             Ok(())
         }
@@ -160,7 +160,7 @@ fn print_config_validation(validation: &config::ConfigValidation, _cli: &Cli) {
         }
     }
     println!();
-    
+
     // Print validation errors
     if !validation.validation_errors.is_empty() {
         println!("❌ Validation Errors:");
@@ -169,7 +169,7 @@ fn print_config_validation(validation: &config::ConfigValidation, _cli: &Cli) {
         }
         println!();
     }
-    
+
     // Print validation warnings
     if !validation.validation_warnings.is_empty() {
         println!("⚠️  Validation Warnings:");
@@ -178,22 +178,26 @@ fn print_config_validation(validation: &config::ConfigValidation, _cli: &Cli) {
         }
         println!();
     }
-    
+
     // Print final resolved configuration
     println!("⚙️  Final Configuration:");
-    println!("   threads: {}", 
-             match validation.config.threads {
-                 config::ThreadsConfig::Auto(ref s) => s.clone(),
-                 config::ThreadsConfig::Count(n) => n.to_string(),
-             });
-    
-    println!("   max_size: {} ({} bytes)", 
-             validation.config.max_size, 
-             validation.config.resolve_max_size().unwrap_or(0));
-    
+    println!(
+        "   threads: {}",
+        match validation.config.threads {
+            config::ThreadsConfig::Auto(ref s) => s.clone(),
+            config::ThreadsConfig::Count(n) => n.to_string(),
+        }
+    );
+
+    println!(
+        "   max_size: {} ({} bytes)",
+        validation.config.max_size,
+        validation.config.resolve_max_size().unwrap_or(0)
+    );
+
     println!("   format: {}", validation.config.format);
     println!("   ignore_git: {}", validation.config.ignore_git);
-    
+
     println!("   filters: {} configured", validation.config.filters.len());
     for (i, filter) in validation.config.filters.iter().enumerate() {
         let file_info = match &filter.file_pattern {
@@ -204,16 +208,23 @@ fn print_config_validation(validation: &config::ConfigValidation, _cli: &Cli) {
             Some(t) => format!(" (threshold: {})", t),
             None => String::new(),
         };
-        println!("     [{}] {}: {}{}{}", i + 1, filter.r#type, filter.pattern, file_info, threshold_info);
+        println!(
+            "     [{}] {}: {}{}{}",
+            i + 1,
+            filter.r#type,
+            filter.pattern,
+            file_info,
+            threshold_info
+        );
     }
-    
+
     println!();
 }
 
 fn run(cli: Cli) -> Result<()> {
     // Validate CLI arguments first
     validate_cli_arguments(&cli)?;
-    
+
     // Load configuration
     let mut config = Config::load(cli.config)?;
 
@@ -225,7 +236,7 @@ fn run(cli: Cli) -> Result<()> {
 
     // Resolve thread count
     let thread_count = if cli.threads != "auto" {
-        cli.threads.parse::<u32>().unwrap() as usize  // Safe unwrap since we validated above
+        cli.threads.parse::<u32>().unwrap() as usize // Safe unwrap since we validated above
     } else {
         config.resolve_threads()?
     };
@@ -306,7 +317,11 @@ fn run(cli: Cli) -> Result<()> {
 
     // Log token count heuristic
     let token_count = tokens_len(output.len());
-    info!("Output contains ~{} tokens ({} characters)", token_count, output.len());
+    info!(
+        "Output contains ~{} tokens ({} characters)",
+        token_count,
+        output.len()
+    );
 
     if cli.out == "-" {
         // Write to stdout with broken pipe handling
