@@ -54,9 +54,9 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-fn init_logging(quiet: bool, output_to_stdout: bool) -> anyhow::Result<()> {
-    // If outputting to stdout, be more conservative with logging
-    let filter = if quiet || output_to_stdout {
+fn init_logging(quiet: bool, _output_to_stdout: bool) -> anyhow::Result<()> {
+    // Only suppress logs when explicitly requested with --quiet
+    let filter = if quiet {
         EnvFilter::builder()
             .with_default_directive(LevelFilter::ERROR.into())
             .from_env_lossy()
