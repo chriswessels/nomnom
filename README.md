@@ -12,8 +12,8 @@ A blazingly fast, cross-platform CLI tool for code repository analysis and intel
 ## ✨ Features
 
 - **🚀 Lightning Fast**: Parallel directory traversal with intelligent memory mapping
-- **🎯 Smart Filtering**: Automatic binary detection, secret redaction, and content truncation
-- **📋 Multiple Formats**: TXT, Markdown, JSON, and XML output formats
+- **🎯 Smart Filtering**: Unified regex-based filter system with file pattern matching
+- **📋 Multiple Formats**: Markdown, JSON, and XML output formats
 - **🛡️ Security First**: Built-in secret detection and redaction
 - **📁 Git Integration**: Respects `.gitignore` and `.ignore` files
 - **⚡ Memory Efficient**: Streaming processing with configurable size limits
@@ -59,7 +59,7 @@ nomnom --config my-config.yml /path/to/project
 nomnom --format json --threads 8 | jq '.'
 
 # Copy to clipboard without log interference
-nomnom --format txt . | pbcopy
+nomnom . | pbcopy
 ```
 
 ## 📖 Usage Guide
@@ -74,8 +74,8 @@ Arguments:
 
 Options:
   -o, --out <OUT>              Output file ('-' for stdout) [default: -]
-  -f, --format <FORMAT>        Output format [default: txt]
-                               [possible values: txt, md, json, xml]
+  -f, --format <FORMAT>        Output format [default: md]
+                               [possible values: md, json, xml]
   -t, --threads <THREADS>      Worker threads ('auto' or number) [default: auto]
       --max-size <MAX_SIZE>    Max file size before stubbing (K/M/G suffix)
   -q, --quiet                  Suppress info logs (auto-enabled when outputting to stdout)
@@ -88,8 +88,7 @@ Options:
 
 ### Output Formats
 
-- **txt**: Plain text with directory tree and file contents (AI-friendly)
-- **md**: Markdown with syntax highlighting and code blocks  
+- **md**: Markdown with syntax highlighting and code blocks (default, AI-friendly)
 - **json**: Structured JSON for programmatic processing
 - **xml**: Minimal XML with CDATA sections
 
@@ -117,17 +116,22 @@ nomnom --init-config > .nomnom.yml
 ```yaml
 threads: auto              # "auto" or positive integer
 max_size: "4M"             # bytes, supports K/M/G suffix
-format: txt                # txt | md | json | xml
+format: md                 # md | json | xml
 ignore_git: true           # respect .gitignore and .ignore files
 
-truncate:
-  style_tags: true         # replace <style>…</style> bodies with "…"
-  svg: true                # replace <svg>…</svg> bodies with "…"
-  big_json_keys: 50        # >0 ⇒ summarise large JSON files
-
 filters:
-  - type: redact
+  - type: redact           # redact sensitive data
     pattern: "(?i)(password|api[_-]?key)\\s*[:=]\\s*\\S+"
+  - type: truncate         # truncate HTML style tags
+    pattern: "<style[^>]*>.*?</style>"
+    file_pattern: "\\.html?$"
+  - type: truncate         # truncate SVG content
+    pattern: "<svg[^>]*>.*?</svg>" 
+    file_pattern: "\\.(html?|xml|svg)$"
+  - type: truncate         # truncate long JSON strings
+    pattern: "\"[^\"]{100,}\""
+    file_pattern: "\\.json$"
+    threshold: 50
 ```
 
 ### Environment Variables
@@ -160,10 +164,35 @@ Logs auto-adjust for clean piping:
 
 ## 🔒 Security & Filtering
 
-- **Secret redaction**: Auto-detects passwords, API keys, tokens
+Nomnom features a powerful unified filter system that supports both content redaction and truncation with regex patterns and file matching.
+
+### Filter Types
+
+**Redact Filters** - Replace sensitive content with `██REDACTED██`:
+```yaml
+- type: redact
+  pattern: "(?i)(password|api[_-]?key)\\s*[:=]\\s*\\S+"  # All files
+- type: redact  
+  pattern: "sk-[a-zA-Z0-9]{48}"                          # OpenAI API keys
+  file_pattern: "\\.(py|js|ts)$"                         # Only in code files
+```
+
+**Truncate Filters** - Replace matched content with simplified versions:
+```yaml
+- type: truncate
+  pattern: "<style[^>]*>.*?</style>"     # HTML style tags
+  file_pattern: "\\.html?$"              # Only in HTML files
+- type: truncate
+  pattern: "\"[^\"]{100,}\""             # Long JSON strings  
+  file_pattern: "\\.json$"
+  threshold: 50                          # Show truncation length
+```
+
+### Additional Security Features
+
 - **Binary detection**: MIME type and content analysis  
 - **Size limits**: Configurable file size limits with stubs
-- **Content truncation**: CSS, JSON, SVG simplification
+- **High-entropy detection**: Automatic base64/token detection
 - **Git integration**: Respects `.gitignore` and `.ignore` files
 
 ## 🏗️ For Contributors
