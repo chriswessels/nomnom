@@ -76,6 +76,11 @@ fn init_logging(quiet: bool, _output_to_stdout: bool) -> anyhow::Result<()> {
     Ok(())
 }
 
+pub fn tokens_len(chars: usize) -> usize {
+    // ceil(chars / 4 * 1.3)
+    (chars * 13 + 39) / 40
+}
+
 fn print_default_config() {
     let default_config = r#"threads: auto              # "auto" or positive integer
 max_size: "4M"             # bytes, supports K/M/G suffix
@@ -342,6 +347,10 @@ fn run(cli: Cli) -> Result<()> {
     // Generate output
     let writer = get_writer(&config.format);
     let output = writer.write_output(&processed_files)?;
+
+    // Log token count heuristic
+    let token_count = tokens_len(output.len());
+    info!("Output contains ~{} tokens ({} characters)", token_count, output.len());
 
     if cli.out == "-" {
         // Write to stdout with broken pipe handling
