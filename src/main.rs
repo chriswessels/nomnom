@@ -194,14 +194,17 @@ fn print_config_validation(validation: &config::ConfigValidation, _cli: &Cli) {
     println!("   format: {}", validation.config.format);
     println!("   ignore_git: {}", validation.config.ignore_git);
     
-    println!("   truncate:");
-    println!("     style_tags: {}", validation.config.truncate.style_tags);
-    println!("     svg: {}", validation.config.truncate.svg);
-    println!("     big_json_keys: {}", validation.config.truncate.big_json_keys);
-    
     println!("   filters: {} configured", validation.config.filters.len());
     for (i, filter) in validation.config.filters.iter().enumerate() {
-        println!("     [{}] {}: {}", i + 1, filter.r#type, filter.pattern);
+        let file_info = match &filter.file_pattern {
+            Some(pattern) => format!(" (files: {})", pattern),
+            None => String::new(),
+        };
+        let threshold_info = match filter.threshold {
+            Some(t) => format!(" (threshold: {})", t),
+            None => String::new(),
+        };
+        println!("     [{}] {}: {}{}{}", i + 1, filter.r#type, filter.pattern, file_info, threshold_info);
     }
     
     println!();

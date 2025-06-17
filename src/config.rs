@@ -12,7 +12,6 @@ pub struct Config {
     pub max_size: String,
     pub format: String,
     pub ignore_git: bool,
-    pub truncate: TruncateConfig,
     pub filters: Vec<FilterConfig>,
 }
 
@@ -23,17 +22,15 @@ pub enum ThreadsConfig {
     Count(u32),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TruncateConfig {
-    pub style_tags: bool,
-    pub svg: bool,
-    pub big_json_keys: u32,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FilterConfig {
     pub r#type: String,
     pub pattern: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub file_pattern: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub threshold: Option<u32>,
 }
 
 #[derive(Debug, Clone)]
@@ -59,15 +56,32 @@ impl Default for Config {
             max_size: "4M".to_string(),
             format: "txt".to_string(),
             ignore_git: true,
-            truncate: TruncateConfig {
-                style_tags: true,
-                svg: true,
-                big_json_keys: 50,
-            },
-            filters: vec![FilterConfig {
-                r#type: "redact".to_string(),
-                pattern: r"(?i)(password|api[_-]?key)\s*[:=]\s*\S+".to_string(),
-            }],
+            filters: vec![
+                FilterConfig {
+                    r#type: "redact".to_string(),
+                    pattern: r"(?i)(password|api[_-]?key)\s*[:=]\s*\S+".to_string(),
+                    file_pattern: None,
+                    threshold: None,
+                },
+                FilterConfig {
+                    r#type: "truncate".to_string(),
+                    pattern: r"<style[^>]*>.*?</style>".to_string(),
+                    file_pattern: Some(r"\.html?$".to_string()),
+                    threshold: None,
+                },
+                FilterConfig {
+                    r#type: "truncate".to_string(),
+                    pattern: r"<svg[^>]*>.*?</svg>".to_string(),
+                    file_pattern: Some(r"\.(html?|xml|svg)$".to_string()),
+                    threshold: None,
+                },
+                FilterConfig {
+                    r#type: "truncate".to_string(),
+                    pattern: r#""[^"]{100,}""#.to_string(),
+                    file_pattern: Some(r"\.json$".to_string()),
+                    threshold: Some(50),
+                },
+            ],
         }
     }
 }
@@ -194,10 +208,6 @@ impl Config {
         }
 
         // Check for potential issues
-        if config.truncate.big_json_keys == 0 {
-            validation_warnings.push("big_json_keys is 0, large JSON files will not be truncated".to_string());
-        }
-
         if config.filters.is_empty() {
             validation_warnings.push("No filters configured - sensitive data may not be redacted".to_string());
         }
@@ -261,10 +271,13 @@ mod tests {
         assert_eq!(config.max_size, "4M");
         assert_eq!(config.format, "txt");
         assert!(config.ignore_git);
-        assert!(config.truncate.style_tags);
-        assert!(config.truncate.svg);
-        assert_eq!(config.truncate.big_json_keys, 50);
-        assert_eq!(config.filters.len(), 1);
+        assert_eq!(config.filters.len(), 4); // redact + 3 truncate filters
+        
+        // Check that we have the expected filter types
+        let redact_filters: Vec<_> = config.filters.iter().filter(|f| f.r#type == "redact").collect();
+        let truncate_filters: Vec<_> = config.filters.iter().filter(|f| f.r#type == "truncate").collect();
+        assert_eq!(redact_filters.len(), 1);
+        assert_eq!(truncate_filters.len(), 3);
     }
 }
 

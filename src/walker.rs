@@ -25,62 +25,7 @@ impl Walker {
     }
 
     pub fn walk<P: AsRef<Path>>(&self, source: P) -> Result<Vec<FileEntry>> {
-        let source = source.as_ref();
-        let max_size = self.config.resolve_max_size()?;
-
-        debug!("Walking directory: {:?}", source);
-        debug!("Max file size: {}", max_size);
-        debug!("Ignore git: {}", self.config.ignore_git);
-
-        let mut builder = WalkBuilder::new(source);
-        builder
-            .hidden(false)
-            .git_ignore(self.config.ignore_git)
-            .git_global(self.config.ignore_git)
-            .git_exclude(self.config.ignore_git)
-            .ignore(self.config.ignore_git)
-            .sort_by_file_name(|a, b| a.cmp(b));
-
-        let mut entries = Vec::new();
-        let mut errors = Vec::new();
-
-        for result in builder.build() {
-            match result {
-                Ok(entry) => {
-                    let path = entry.path();
-
-                    // Skip directories
-                    if path.is_dir() {
-                        continue;
-                    }
-
-                    match self.process_file(path, max_size) {
-                        Ok(Some(file_entry)) => entries.push(file_entry),
-                        Ok(None) => {
-                            debug!("Skipped file: {:?}", path);
-                        }
-                        Err(e) => {
-                            warn!("Error processing file {:?}: {}", path, e);
-                            errors.push(e);
-                        }
-                    }
-                }
-                Err(e) => {
-                    warn!("Walk error: {}", e);
-                    errors.push(NomnomError::Walk(e));
-                }
-            }
-        }
-
-        // Sort entries by path for deterministic output
-        entries.sort_by(|a, b| a.path.cmp(&b.path));
-
-        debug!("Found {} files", entries.len());
-        if !errors.is_empty() {
-            debug!("Encountered {} errors during walking", errors.len());
-        }
-
-        Ok(entries)
+        self.walk_internal(source, 1)
     }
 
     pub fn walk_parallel<P: AsRef<Path>>(
@@ -88,77 +33,102 @@ impl Walker {
         source: P,
         thread_count: usize,
     ) -> Result<Vec<FileEntry>> {
+        self.walk_internal(source, thread_count)
+    }
+
+    fn walk_internal<P: AsRef<Path>>(&self, source: P, thread_count: usize) -> Result<Vec<FileEntry>> {
         let source = source.as_ref();
         let max_size = self.config.resolve_max_size()?;
 
-        debug!("Walking directory in parallel: {:?}", source);
+        debug!("Walking directory: {:?}", source);
         debug!("Thread count: {}", thread_count);
         debug!("Max file size: {}", max_size);
+        debug!("Ignore git: {}", self.config.ignore_git);
 
         let mut builder = WalkBuilder::new(source);
+        let ignore_git = self.config.ignore_git;
         builder
             .hidden(false)
-            .git_ignore(self.config.ignore_git)
-            .git_global(self.config.ignore_git)
-            .git_exclude(self.config.ignore_git)
-            .ignore(self.config.ignore_git)
-            .sort_by_file_name(|a, b| a.cmp(b))
-            .threads(thread_count);
+            .git_ignore(ignore_git)
+            .git_global(ignore_git)
+            .git_exclude(ignore_git)
+            .ignore(ignore_git)
+            .filter_entry(move |entry| {
+                let path = entry.path();
+                !path.is_dir() || !ignore_git || path.file_name().map_or(true, |n| n != ".git")
+            })
+            .sort_by_file_name(|a, b| a.cmp(b));
 
-        use std::sync::{Arc, Mutex};
-        let entries = Arc::new(Mutex::new(Vec::new()));
+        if thread_count == 1 {
+            // Single-threaded processing
+            let mut entries = Vec::new();
 
-        let entries_clone = Arc::clone(&entries);
-        let config = self.config.clone();
-
-        builder.build_parallel().run(|| {
-            let entries = Arc::clone(&entries_clone);
-            let config = config.clone();
-
-            Box::new(move |result| {
+            for result in builder.build() {
                 match result {
                     Ok(entry) => {
                         let path = entry.path();
-
-                        // Skip directories
                         if path.is_dir() {
-                            return WalkState::Continue;
+                            continue;
                         }
 
-                        let walker = Walker::new(config.clone());
-                        match walker.process_file(path, max_size) {
-                            Ok(Some(file_entry)) => {
-                                if let Ok(mut entries) = entries.lock() {
-                                    entries.push(file_entry);
-                                }
-                            }
-                            Ok(None) => {
-                                debug!("Skipped file: {:?}", path);
-                            }
-                            Err(e) => {
-                                warn!("Error processing file {:?}: {}", path, e);
-                            }
+                        match self.process_file(path, max_size) {
+                            Ok(Some(file_entry)) => entries.push(file_entry),
+                            Ok(None) => debug!("Skipped file: {:?}", path),
+                            Err(e) => warn!("Error processing file {:?}: {}", path, e),
                         }
                     }
-                    Err(e) => {
-                        warn!("Walk error: {}", e);
-                    }
+                    Err(e) => warn!("Walk error: {}", e),
                 }
-                WalkState::Continue
-            })
-        });
+            }
 
-        let mut entries = entries
-            .lock()
-            .map_err(|_| NomnomError::Output("Failed to lock entries mutex".to_string()))?
-            .clone();
+            entries.sort_by(|a, b| a.path.cmp(&b.path));
+            debug!("Found {} files", entries.len());
+            Ok(entries)
+        } else {
+            // Parallel processing
+            use std::sync::{Arc, Mutex};
+            let entries = Arc::new(Mutex::new(Vec::new()));
+            let entries_clone = Arc::clone(&entries);
+            let config = self.config.clone();
 
-        // Sort entries by path for deterministic output
-        entries.sort_by(|a, b| a.path.cmp(&b.path));
+            builder.threads(thread_count).build_parallel().run(|| {
+                let entries = Arc::clone(&entries_clone);
+                let config = config.clone();
 
-        debug!("Found {} files", entries.len());
+                Box::new(move |result| {
+                    match result {
+                        Ok(entry) => {
+                            let path = entry.path();
+                            if path.is_dir() {
+                                return WalkState::Continue;
+                            }
 
-        Ok(entries)
+                            let walker = Walker::new(config.clone());
+                            match walker.process_file(path, max_size) {
+                                Ok(Some(file_entry)) => {
+                                    if let Ok(mut entries) = entries.lock() {
+                                        entries.push(file_entry);
+                                    }
+                                }
+                                Ok(None) => debug!("Skipped file: {:?}", path),
+                                Err(e) => warn!("Error processing file {:?}: {}", path, e),
+                            }
+                        }
+                        Err(e) => warn!("Walk error: {}", e),
+                    }
+                    WalkState::Continue
+                })
+            });
+
+            let mut entries = entries
+                .lock()
+                .map_err(|_| NomnomError::Output("Failed to lock entries mutex".to_string()))?
+                .clone();
+
+            entries.sort_by(|a, b| a.path.cmp(&b.path));
+            debug!("Found {} files", entries.len());
+            Ok(entries)
+        }
     }
 
     fn process_file(&self, path: &Path, max_size: u64) -> Result<Option<FileEntry>> {
