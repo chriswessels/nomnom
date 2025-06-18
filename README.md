@@ -170,11 +170,26 @@ Nomnom features a powerful unified filter system that supports both content reda
 
 **Redact Filters** - Replace sensitive content with `██REDACTED██`:
 ```yaml
+# Common credentials and API keys
 - type: redact
   pattern: "(?i)(password|api[_-]?key)\\s*[:=]\\s*\\S+"  # All files
 - type: redact  
   pattern: "sk-[a-zA-Z0-9]{48}"                          # OpenAI API keys
   file_pattern: "\\.(py|js|ts)$"                         # Only in code files
+
+# High-entropy strings (specific secret patterns)  
+- type: redact
+  pattern: "eyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+"  # JWT tokens
+- type: redact
+  pattern: "\\bAKIA[0-9A-Z]{16}\\b"                     # AWS access keys
+- type: redact
+  pattern: "\\bghp_[A-Za-z0-9]{36}\\b"                  # GitHub tokens
+- type: redact
+  pattern: "\\bxoxb-[0-9]{13}-[0-9]{13}-[A-Za-z0-9]{24}\\b"  # Slack bot tokens
+- type: redact
+  pattern: "(?i)(secret|key|token|password)\\s*[:=]\\s*[A-Za-z0-9+/]{20,}={0,2}"  # Base64 secrets
+- type: redact
+  pattern: "(?i)(key|secret|hash)\\s*[:=]\\s*[0-9a-f]{32,}"  # Long hex in secret context
 ```
 
 **Truncate Filters** - Replace matched content with simplified versions:
@@ -192,7 +207,6 @@ Nomnom features a powerful unified filter system that supports both content reda
 
 - **Binary detection**: MIME type and content analysis  
 - **Size limits**: Configurable file size limits with stubs
-- **High-entropy detection**: Automatic base64/token detection
 - **Git integration**: Respects `.gitignore` and `.ignore` files
 
 ## 🏗️ For Contributors

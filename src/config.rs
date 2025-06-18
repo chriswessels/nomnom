@@ -55,9 +55,22 @@ impl Default for Config {
             format: "md".to_string(),
             ignore_git: true,
             filters: vec![
+                // Conservative redaction filters - catch obvious secrets without false positives
                 FilterConfig {
                     r#type: "redact".to_string(),
                     pattern: r"(?i)(password|api[_-]?key)\s*[:=]\s*\S+".to_string(),
+                    file_pattern: None,
+                    threshold: None,
+                },
+                FilterConfig {
+                    r#type: "redact".to_string(),
+                    pattern: r"\bAKIA[0-9A-Z]{16}\b".to_string(),
+                    file_pattern: None,
+                    threshold: None,
+                },
+                FilterConfig {
+                    r#type: "redact".to_string(),
+                    pattern: r"(?i)(secret|token)\s*[:=]\s*[A-Za-z0-9+/]{20,}={0,2}".to_string(),
                     file_pattern: None,
                     threshold: None,
                 },
@@ -260,7 +273,7 @@ mod tests {
         assert_eq!(config.max_size, "4M");
         assert_eq!(config.format, "md");
         assert!(config.ignore_git);
-        assert_eq!(config.filters.len(), 4); // redact + 3 truncate filters
+        assert_eq!(config.filters.len(), 6); // 3 redact + 3 truncate filters
 
         // Check that we have the expected filter types
         let redact_filters: Vec<_> = config
@@ -273,7 +286,7 @@ mod tests {
             .iter()
             .filter(|f| f.r#type == "truncate")
             .collect();
-        assert_eq!(redact_filters.len(), 1);
+        assert_eq!(redact_filters.len(), 3);
         assert_eq!(truncate_filters.len(), 3);
     }
 }

@@ -176,53 +176,11 @@ impl Processor {
             }
         }
 
-        // Additional entropy-based detection for potential secrets
-        result = self.redact_high_entropy_strings(&result)?;
-
         if redaction_count > 0 {
             debug!("Applied {} redactions", redaction_count);
         }
 
         Ok(result)
-    }
-
-    fn redact_high_entropy_strings(&self, text: &str) -> Result<String> {
-        use regex::Regex;
-        let re = Regex::new(r"[A-Za-z0-9+/]{20,}={0,2}").unwrap(); // Base64-like patterns
-
-        let result = re.replace_all(text, |caps: &regex::Captures| {
-            let matched = caps.get(0).unwrap().as_str();
-            if self.calculate_entropy(matched) > 3.5 {
-                "██REDACTED██".to_string()
-            } else {
-                matched.to_string()
-            }
-        });
-
-        Ok(result.to_string())
-    }
-
-    fn calculate_entropy(&self, s: &str) -> f64 {
-        use std::collections::HashMap;
-
-        if s.is_empty() {
-            return 0.0;
-        }
-
-        let mut freq = HashMap::new();
-        for ch in s.chars() {
-            *freq.entry(ch).or_insert(0) += 1;
-        }
-
-        let len = s.len() as f64;
-        let mut entropy = 0.0;
-
-        for count in freq.values() {
-            let p = *count as f64 / len;
-            entropy -= p * p.log2();
-        }
-
-        entropy
     }
 }
 
@@ -233,21 +191,6 @@ mod tests {
 
     fn create_test_processor() -> Processor {
         Processor::new(Config::default())
-    }
-
-    #[test]
-    fn test_entropy_calculation() {
-        let processor = create_test_processor();
-
-        // Low entropy (repeated characters)
-        assert!(processor.calculate_entropy("aaaaaaaaaa") < 1.0);
-
-        // High entropy (random-looking)
-        assert!(processor.calculate_entropy("aB3xK9mQ7vR2nF5wL8jY4pS1eT6uI0oP") > 3.0);
-
-        // Medium entropy (normal text)
-        let normal_text_entropy = processor.calculate_entropy("hello world");
-        assert!(normal_text_entropy > 1.0 && normal_text_entropy < 4.0);
     }
 
     #[test]
@@ -263,6 +206,29 @@ mod tests {
 
         // Binary content (with null bytes)
         assert!(processor.is_binary_content(b"Hello\x00World"));
+    }
+
+    #[test]
+    fn test_no_redaction_with_empty_filters() -> Result<()> {
+        // Create a processor with no filters to reproduce the bug
+        let config = Config {
+            threads: crate::config::ThreadsConfig::Auto("auto".to_string()),
+            max_size: "4M".to_string(),
+            format: "md".to_string(),
+            ignore_git: true,
+            filters: vec![], // No filters configured
+        };
+        let processor = Processor::new(config);
+
+        // Test high-entropy string that would trigger hardcoded redaction
+        let high_entropy_content = "secret_key=aB3xK9mQ7vR2nF5wL8jY4pS1eT6uI0oP";
+        let result = processor.apply_filters(high_entropy_content, Path::new("config.txt"))?;
+
+        // With no filters configured, content should NOT be redacted
+        assert!(!result.contains("██REDACTED██"));
+        assert!(result.contains("aB3xK9mQ7vR2nF5wL8jY4pS1eT6uI0oP"));
+
+        Ok(())
     }
 
     #[test]
