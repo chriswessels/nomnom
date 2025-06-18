@@ -128,7 +128,9 @@ impl Config {
         // Load environment variables
         figment = figment.merge(Env::prefixed("NOMNOM_"));
 
-        figment.extract().map_err(|e| NomnomError::Config(Box::new(e)))
+        figment
+            .extract()
+            .map_err(|e| NomnomError::Config(Box::new(e)))
     }
 
     pub fn resolve_threads(&self) -> Result<usize> {
