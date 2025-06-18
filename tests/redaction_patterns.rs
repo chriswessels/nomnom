@@ -21,7 +21,7 @@ mod tests {
     #[test]
     fn test_high_entropy_redaction_patterns() {
         // Test cases for what SHOULD be redacted (secrets/tokens)
-        let should_redact = vec![
+        let should_redact = [
             // JWT tokens
             "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
             // AWS access keys
@@ -41,7 +41,7 @@ mod tests {
         ];
 
         // Test cases for what should NOT be redacted (legitimate code)
-        let should_not_redact = vec![
+        let should_not_redact = [
             // Rust generics and types
             "HashMap<String, Vec<Result<T, E>>>",
             "Box<dyn Future<Output = Result<Response, Error>> + Send>",
@@ -237,7 +237,7 @@ mod tests {
         let patterns: Vec<String> = redact_filters.iter().map(|f| f.pattern.clone()).collect();
 
         // Test that default patterns catch secrets
-        let secrets = vec![
+        let secrets = [
             "password=secret123",
             "api_key=abc123def456",
             "AKIAIOSFODNN7EXAMPLE",
@@ -245,7 +245,7 @@ mod tests {
             "token=aGVyZWlzYW5vdGhlcmxvbmdzdHJpbmc=",
         ];
 
-        let legitimate_code = vec![
+        let legitimate_code = [
             "HashMap<String, Vec<Result<T, E>>>", // Rust generics
             "function processData(data: any): Promise<Result>", // TypeScript
             "const user = { id: 123, name: 'user' }", // JSON-like

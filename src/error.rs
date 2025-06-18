@@ -6,7 +6,7 @@ pub enum NomnomError {
     Io(#[from] std::io::Error),
 
     #[error("Configuration error: {0}")]
-    Config(#[from] figment::Error),
+    Config(#[from] Box<figment::Error>),
 
     #[error("YAML parsing error: {0}")]
     Yaml(#[from] serde_yaml::Error),

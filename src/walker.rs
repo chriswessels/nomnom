@@ -59,7 +59,7 @@ impl Walker {
             .ignore(ignore_git)
             .filter_entry(move |entry| {
                 let path = entry.path();
-                !path.is_dir() || !ignore_git || path.file_name().map_or(true, |n| n != ".git")
+                !path.is_dir() || !ignore_git || path.file_name().is_none_or(|n| n != ".git")
             })
             .sort_by_file_name(|a, b| a.cmp(b));
 

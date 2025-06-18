@@ -78,7 +78,7 @@ fn init_logging(quiet: bool, _output_to_stdout: bool) -> anyhow::Result<()> {
 
 pub fn tokens_len(chars: usize) -> usize {
     // ceil(chars / 4 * 1.3)
-    (chars * 13 + 39) / 40
+    (chars * 13).div_ceil(40)
 }
 
 fn print_default_config() {
