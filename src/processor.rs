@@ -7,6 +7,11 @@ use memmap2::MmapOptions;
 use std::{fs::File, path::Path};
 use tracing::{debug, info, warn};
 
+/// Normalize path to use forward slashes regardless of platform
+fn normalize_path_separators<P: AsRef<Path>>(path: P) -> String {
+    path.as_ref().to_string_lossy().replace('\\', "/")
+}
+
 const MMAP_THRESHOLD: u64 = 4 * 1024 * 1024; // 4 MiB
 
 #[derive(Debug, Clone)]
@@ -33,7 +38,7 @@ impl Processor {
     }
 
     pub fn process_file(&self, entry: &FileEntry) -> Result<ProcessedFile> {
-        let path_str = entry.path.to_string_lossy().to_string();
+        let path_str = normalize_path_separators(&entry.path);
 
         debug!("Processing file: {}", path_str);
 

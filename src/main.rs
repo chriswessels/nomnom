@@ -14,12 +14,18 @@ use processor::Processor;
 use walker::Walker;
 
 use clap::Parser;
+use std::path::Path;
 use tracing::{debug, error, info, warn};
 use tracing_subscriber::{filter::LevelFilter, EnvFilter};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const GIT_SHA: &str = env!("VERGEN_GIT_SHA");
 const BUILD_TIMESTAMP: &str = env!("VERGEN_BUILD_TIMESTAMP");
+
+/// Normalize path to use forward slashes regardless of platform
+fn normalize_path_separators<P: AsRef<Path>>(path: P) -> String {
+    path.as_ref().to_string_lossy().replace('\\', "/")
+}
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
@@ -315,7 +321,7 @@ fn run(cli: Cli) -> Result<()> {
             Err(e) => {
                 warn!("Failed to process file {:?}: {}", file.path, e);
                 processed_files.push(processor::ProcessedFile {
-                    path: file.path.to_string_lossy().to_string(),
+                    path: normalize_path_separators(&file.path),
                     content: processor::FileContent::Error(format!("[error: {}]", e)),
                 });
             }

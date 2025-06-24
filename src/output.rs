@@ -5,6 +5,11 @@ use crate::{
 use serde_json::{json, Value};
 use std::{collections::HashMap, fmt, path::Path};
 
+/// Normalize path to use forward slashes regardless of platform
+fn normalize_path_separators<P: AsRef<Path>>(path: P) -> String {
+    path.as_ref().to_string_lossy().replace('\\', "/")
+}
+
 pub trait OutputWriter {
     fn write_output(&self, files: &[ProcessedFile]) -> Result<String>;
 }
@@ -25,7 +30,7 @@ impl DirectoryTree {
 
             for ancestor in ancestors {
                 if ancestor != Path::new("") && ancestor != Path::new(".") {
-                    dirs.insert(ancestor.to_string_lossy().to_string());
+                    dirs.insert(normalize_path_separators(ancestor));
                 }
             }
         }
