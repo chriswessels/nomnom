@@ -68,7 +68,7 @@ jobs:
       run: cargo build --release --target ${{ matrix.target }}
 
     - name: Strip binary (unix)
-      if: matrix.os != 'windows-latest'
+      if: matrix.os != 'windows-latest' && !contains(matrix.target, 'linux-musl')
       run: strip target/${{ matrix.target }}/release/nomnom
 
     - name: Create archive (unix)
