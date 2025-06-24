@@ -12,7 +12,7 @@ fn test_git_remote_ingestion() {
 
     // Run nomnom with the remote git URL
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "--format",
@@ -87,7 +87,7 @@ fn test_git_remote_vs_local_behavior() {
     let remote_output_path = remote_output_file.path();
 
     let remote_result = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "--format",
@@ -138,7 +138,7 @@ fn test_ssh_style_git_url() {
 
     // Run nomnom with the SSH git URL
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "--format",
@@ -205,7 +205,7 @@ fn test_invalid_git_url_handling() {
         let output_path = output_file.path();
 
         let output = Command::new("cargo")
-            .args(&[
+            .args([
                 "run",
                 "--",
                 "--format",
@@ -252,7 +252,7 @@ fn test_temporary_directory_cleanup() {
     let output_path = output_file.path();
 
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "--format",
@@ -303,7 +303,7 @@ fn test_different_git_platforms() {
         let output_path = output_file.path();
 
         let output = Command::new("cargo")
-            .args(&[
+            .args([
                 "run",
                 "--",
                 "--format",
@@ -357,7 +357,7 @@ fn test_git_subpath_functionality() {
     let output_path = output_file.path();
 
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "--format",
@@ -423,7 +423,7 @@ fn test_git_subpath_functionality() {
     let full_repo_output_path = full_repo_output_file.path();
 
     let full_repo_output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "--format",
@@ -469,7 +469,7 @@ fn test_invalid_subpath_handling() {
     let output_path = output_file.path();
 
     let output = Command::new("cargo")
-        .args(&[
+        .args([
             "run",
             "--",
             "--format",

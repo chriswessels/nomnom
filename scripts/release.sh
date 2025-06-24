@@ -14,6 +14,45 @@ print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
 print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
 print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+print_command() { echo -e "${YELLOW}[RUNNING]${NC} $1"; }
+
+# Function to run a command with clear output
+run_check() {
+    local description="$1"
+    local command="$2"
+    local failure_msg="${3:-Please fix the issues before creating a release.}"
+    
+    print_info "$description"
+    print_command "$command"
+    
+    if ! eval "$command"; then
+        print_error "$description failed!"
+        print_error "Command that failed: $command"
+        print_error "$failure_msg"
+        exit 1
+    fi
+    
+    print_success "$description completed successfully"
+}
+
+# Function to run a git command with clear output
+run_git_check() {
+    local description="$1"
+    local git_args="$2"
+    local failure_msg="${3:-Git operation failed}"
+    
+    print_info "$description"
+    print_command "git $git_args"
+    
+    if ! git $git_args; then
+        print_error "$description failed!"
+        print_error "Git command that failed: git $git_args"
+        print_error "$failure_msg"
+        exit 1
+    fi
+    
+    print_success "$description completed successfully"
+}
 
 # Check if we're in a git repository
 if ! git rev-parse --git-dir > /dev/null 2>&1; then
@@ -24,6 +63,7 @@ fi
 # Check if working directory is clean
 if ! git diff-index --quiet HEAD --; then
     print_error "Working directory is not clean. Please commit or stash your changes first."
+    print_info "Current status:"
     git status --short
     exit 1
 fi
@@ -76,61 +116,37 @@ fi
 
 # Check if local main is up to date with remote
 if git remote get-url origin > /dev/null 2>&1; then
-    print_info "Fetching latest changes from remote..."
-    git fetch origin
+    run_git_check "Fetching latest changes from remote" "fetch origin"
     
     LOCAL=$(git rev-parse HEAD)
     REMOTE=$(git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null || echo "")
     
     if [[ -n "$REMOTE" && "$LOCAL" != "$REMOTE" ]]; then
         print_error "Local branch is not up to date with remote"
+        print_error "Local commit:  $LOCAL"
+        print_error "Remote commit: $REMOTE"
         print_info "Please pull latest changes first: git pull origin main"
         exit 1
     fi
+    print_success "Local branch is up to date with remote"
 fi
 
 # Run full CI quality checks
 print_info "Running quality checks (same as CI)..."
 
-# Check formatting
-print_info "Checking code formatting..."
-if ! cargo fmt --all -- --check; then
-    print_error "Code formatting check failed. Run 'cargo fmt' to fix formatting."
-    exit 1
-fi
+run_check "Checking code formatting" "cargo fmt --all -- --check" "Run 'cargo fmt' to fix formatting."
 
-# Run clippy
-print_info "Running clippy lints..."
-if ! cargo clippy --all-targets --all-features -- -D warnings; then
-    print_error "Clippy lints failed. Please fix all warnings before creating a release."
-    exit 1
-fi
+run_check "Running clippy lints" "cargo clippy --all-targets --all-features -- -D warnings" "Please fix all warnings before creating a release."
 
-# Run tests
-print_info "Running tests..."
-if ! cargo test --verbose; then
-    print_error "Tests failed. Please fix them before creating a release."
-    exit 1
-fi
+run_check "Running tests" "cargo test --verbose" "Please fix failing tests before creating a release."
 
-# Check release build
-print_info "Checking release build..."
-if ! cargo build --release --verbose; then
-    print_error "Release build failed. Please fix build errors before creating a release."
-    exit 1
-fi
+run_check "Checking release build" "cargo build --release --verbose" "Please fix build errors before creating a release."
 
 # Test CLI functionality (basic smoke tests)
 print_info "Running CLI smoke tests..."
-if ! cargo run --release -- --help > /dev/null; then
-    print_error "CLI help command failed"
-    exit 1
-fi
+run_check "Testing CLI help command" "cargo run --release -- --help > /dev/null" "CLI help command is not working properly"
 
-if ! cargo run --release -- --init-config > /dev/null; then
-    print_error "CLI init-config command failed"
-    exit 1
-fi
+run_check "Testing CLI init-config command" "cargo run --release -- --init-config > /dev/null" "CLI init-config command is not working properly"
 
 print_success "All quality checks passed!"
 
@@ -152,14 +168,13 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
 fi
 
 # Create annotated tag
-print_info "Creating tag $TAG..."
-git tag -a "$TAG" -m "Release $TAG
+TAG_MESSAGE="Release $TAG
 
 $(git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~10")..HEAD --pretty=format:"- %s" --reverse 2>/dev/null || echo "- Initial release")"
 
-# Push tag to remote
-print_info "Pushing tag to remote..."
-git push origin "$TAG"
+run_git_check "Creating tag $TAG" "tag -a \"$TAG\" -m \"$TAG_MESSAGE\"" "Failed to create git tag"
+
+run_git_check "Pushing tag to remote" "push origin \"$TAG\"" "Failed to push tag to remote"
 
 print_success "Release $TAG created and pushed!"
 print_info "GitHub Actions will now build and publish the release automatically."
