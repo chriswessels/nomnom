@@ -50,6 +50,7 @@ jobs:
       run: |
         cargo install cross --git https://github.com/cross-rs/cross
         sudo apt-get update
+        sudo apt-get install -y pkg-config libssl-dev
         if [ "${{ matrix.target }}" = "aarch64-unknown-linux-musl" ]; then
           sudo apt-get install -y gcc-aarch64-linux-gnu
         elif [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
@@ -71,7 +72,7 @@ jobs:
       run: cross build --release --target ${{ matrix.target }}
       
     - name: Build binary (cargo)
-      if: "!contains(matrix.target, 'linux-musl')"
+      if: ${{ !contains(matrix.target, 'linux-musl') }}
       run: cargo build --release --target ${{ matrix.target }}
 
     - name: Strip binary (unix)
