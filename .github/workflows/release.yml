@@ -46,11 +46,15 @@ jobs:
         targets: ${{ matrix.target }}
 
     - name: Install cross-compilation tools
-      if: matrix.target == 'aarch64-unknown-linux-musl'
+      if: contains(matrix.target, 'linux-musl')
       run: |
         cargo install cross --git https://github.com/cross-rs/cross
         sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu
+        if [ "${{ matrix.target }}" = "aarch64-unknown-linux-musl" ]; then
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+        elif [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
+          sudo apt-get install -y musl-tools
+        fi
 
     - name: Cache cargo
       uses: actions/cache@v4
@@ -63,15 +67,15 @@ jobs:
         key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Build binary (cross)
-      if: matrix.target == 'aarch64-unknown-linux-musl'
+      if: contains(matrix.target, 'linux-musl')
       run: cross build --release --target ${{ matrix.target }}
       
     - name: Build binary (cargo)
-      if: matrix.target != 'aarch64-unknown-linux-musl'
+      if: "!contains(matrix.target, 'linux-musl')"
       run: cargo build --release --target ${{ matrix.target }}
 
     - name: Strip binary (unix)
-      if: matrix.os != 'windows-latest' && matrix.target != 'aarch64-unknown-linux-musl'
+      if: matrix.os != 'windows-latest' && !contains(matrix.target, 'linux-musl')
       run: strip target/${{ matrix.target }}/release/nomnom
 
     - name: Create archive (unix)
