@@ -1,6 +1,6 @@
 use nomnom::{
     config::Config,
-    processor::{Processor, FileContent},
+    processor::{FileContent, Processor},
     walker::FileEntry,
 };
 use std::path::PathBuf;
@@ -22,7 +22,7 @@ fn test_binary_detection_with_test_files() {
 
         let result = processor.process_file(&png_entry);
         assert!(result.is_err(), "PNG file should be detected as binary");
-        
+
         if let Err(nomnom::error::NomnomError::BinaryFile { path }) = result {
             assert!(path.contains("test-image.png"));
         } else {
@@ -55,7 +55,10 @@ fn test_binary_detection_with_test_files() {
         };
 
         let result = processor.process_file(&exe_entry);
-        assert!(result.is_err(), "Executable file should be detected as binary");
+        assert!(
+            result.is_err(),
+            "Executable file should be detected as binary"
+        );
     }
 
     // Test 4: Text configuration file (should NOT be detected as binary)
@@ -69,13 +72,19 @@ fn test_binary_detection_with_test_files() {
         };
 
         let result = processor.process_file(&config_entry);
-        assert!(result.is_ok(), "Text config file should not be detected as binary");
-        
+        assert!(
+            result.is_ok(),
+            "Text config file should not be detected as binary"
+        );
+
         // Verify that the redaction filters worked
         if let Ok(processed) = result {
             match processed.content {
                 FileContent::Text(content) => {
-                    assert!(content.contains("██REDACTED██"), "Secrets should be redacted");
+                    assert!(
+                        content.contains("██REDACTED██"),
+                        "Secrets should be redacted"
+                    );
                     assert!(!content.contains("supersecret123"));
                     assert!(!content.contains("sk-1234567890abcdef"));
                     assert!(!content.contains("AKIAIOSFODNN7EXAMPLE"));
