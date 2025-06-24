@@ -45,6 +45,10 @@ jobs:
       with:
         targets: ${{ matrix.target }}
 
+    - name: Install cross for musl targets
+      if: contains(matrix.target, 'linux-musl')
+      run: cargo install cross --git https://github.com/cross-rs/cross
+
     - name: Cache cargo
       uses: actions/cache@v4
       with:
@@ -55,7 +59,12 @@ jobs:
           target/
         key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
 
-    - name: Build binary
+    - name: Build binary (cross for musl)
+      if: contains(matrix.target, 'linux-musl')
+      run: cross build --release --target ${{ matrix.target }}
+
+    - name: Build binary (cargo for others)
+      if: "!contains(matrix.target, 'linux-musl')"
       run: cargo build --release --target ${{ matrix.target }}
 
     - name: Strip binary (unix)
