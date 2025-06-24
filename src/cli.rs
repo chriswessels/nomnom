@@ -51,7 +51,7 @@ pub enum OutputFormat {
     Md,
     /// JSON structured output
     Json,
-    /// Minimal XML with CDATA
+    /// Simple XML format
     Xml,
 }
 

@@ -113,7 +113,7 @@ Options:
 
 - **md**: Markdown with syntax highlighting and code blocks (default, AI-friendly)
 - **json**: Structured JSON for programmatic processing
-- **xml**: Minimal XML with CDATA sections
+- **xml**: Simple XML format
 
 ## ⚙️ Configuration
 

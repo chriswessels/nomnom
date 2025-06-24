@@ -217,10 +217,10 @@ impl OutputWriter for XmlWriter {
         for file in files {
             match &file.content {
                 FileContent::Text(content) => {
-                    output.push_str(&format!(r#"<file path="{}"><![CDATA["#, file.path));
+                    output.push_str(&format!(r#"<file path="{}">"#, file.path));
                     output.push('\n');
                     output.push_str(content);
-                    output.push_str("\n]]></file>");
+                    output.push_str("\n</file>");
                 }
                 FileContent::Binary(desc)
                 | FileContent::Oversized(desc)
@@ -324,8 +324,8 @@ mod tests {
 
         assert!(result.contains("<instructions>"));
         assert!(result.contains("<directory_tree>"));
-        assert!(result.contains(r#"<file path="src/main.rs"><![CDATA["#));
-        assert!(result.contains("]]></file>"));
+        assert!(result.contains(r#"<file path="src/main.rs">"#));
+        assert!(result.contains("</file>"));
         assert!(result.contains("[binary skipped]"));
 
         Ok(())
