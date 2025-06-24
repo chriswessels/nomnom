@@ -5,7 +5,7 @@ use crate::{
 };
 use memmap2::MmapOptions;
 use std::{fs::File, path::Path};
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 const MMAP_THRESHOLD: u64 = 4 * 1024 * 1024; // 4 MiB
 
@@ -48,7 +48,10 @@ impl Processor {
 
         // Check if file is binary by extension (quick check)
         if entry.is_binary {
-            debug!("File is binary by extension: {}", path_str);
+            info!(
+                "Filter applied: Binary detection by extension - {}",
+                path_str
+            );
             return Err(NomnomError::BinaryFile { path: path_str });
         }
 
@@ -66,7 +69,7 @@ impl Processor {
 
         // Advanced binary detection
         if self.is_binary_content(&content) {
-            debug!("File is binary by content: {}", path_str);
+            info!("Filter applied: Binary detection by content - {}", path_str);
             return Err(NomnomError::BinaryFile { path: path_str });
         }
 
@@ -74,7 +77,10 @@ impl Processor {
         let text = match String::from_utf8(content) {
             Ok(text) => text,
             Err(_) => {
-                debug!("File is not valid UTF-8: {}", path_str);
+                info!(
+                    "Filter applied: UTF-8 validation failed (treating as binary) - {}",
+                    path_str
+                );
                 return Err(NomnomError::BinaryFile { path: path_str });
             }
         };
@@ -123,6 +129,7 @@ impl Processor {
         // Apply CSS file filter (skip CSS files entirely)
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
             if ext.to_lowercase() == "css" {
+                info!("Filter applied: CSS content simplification - {}", path_str);
                 result = "/* CSS content simplified */".to_string();
                 return Ok(result);
             }
@@ -134,50 +141,75 @@ impl Processor {
             if let Some(ref file_pattern) = filter.file_pattern {
                 let file_regex = regex::Regex::new(file_pattern)?;
                 if !file_regex.is_match(&path_str) {
+                    debug!(
+                        "Filter '{}' pattern '{}' skipped for file: {}",
+                        filter.r#type, file_pattern, path_str
+                    );
                     continue; // Skip this filter for this file
                 }
+                debug!(
+                    "Filter '{}' pattern '{}' applies to file: {}",
+                    filter.r#type, file_pattern, path_str
+                );
             }
 
             // Apply the filter based on type
             match filter.r#type.as_str() {
                 "redact" => {
-                    let before_len = result.len();
                     let content_regex = regex::Regex::new(&filter.pattern)?;
-                    result = content_regex
-                        .replace_all(&result, "██REDACTED██")
-                        .to_string();
-                    if result.len() != before_len {
-                        redaction_count += 1;
+                    let matches_count = content_regex.find_iter(&result).count();
+                    if matches_count > 0 {
+                        info!(
+                            "Filter applied: Redaction pattern '{}' matched {} time(s) in {}",
+                            filter.pattern, matches_count, path_str
+                        );
+                        result = content_regex
+                            .replace_all(&result, "██REDACTED██")
+                            .to_string();
+                        redaction_count += matches_count;
                     }
                 }
                 "truncate" => {
                     let content_regex = regex::Regex::new(&filter.pattern)?;
-                    let replacement = match filter.threshold {
-                        Some(threshold) => {
-                            // For patterns like long strings, truncate to threshold length
-                            format!("\"...({} chars truncated)...\"", threshold)
-                        }
-                        None => {
-                            // For patterns like HTML tags, use a simple replacement
-                            if filter.pattern.contains("<style") {
-                                "<style>…</style>".to_string()
-                            } else if filter.pattern.contains("<svg") {
-                                "<svg>…</svg>".to_string()
-                            } else {
-                                "…".to_string()
+                    let matches_count = content_regex.find_iter(&result).count();
+                    if matches_count > 0 {
+                        let replacement = match filter.threshold {
+                            Some(threshold) => {
+                                // For patterns like long strings, truncate to threshold length
+                                format!("\"...({} chars truncated)...\"", threshold)
                             }
-                        }
-                    };
-                    result = content_regex.replace_all(&result, &replacement).to_string();
+                            None => {
+                                // For patterns like HTML tags, use a simple replacement
+                                if filter.pattern.contains("<style") {
+                                    "<style>…</style>".to_string()
+                                } else if filter.pattern.contains("<svg") {
+                                    "<svg>…</svg>".to_string()
+                                } else {
+                                    "…".to_string()
+                                }
+                            }
+                        };
+                        info!(
+                            "Filter applied: Truncation pattern '{}' matched {} time(s) in {}",
+                            filter.pattern, matches_count, path_str
+                        );
+                        result = content_regex.replace_all(&result, &replacement).to_string();
+                    }
                 }
                 _ => {
-                    warn!("Unknown filter type: {}", filter.r#type);
+                    warn!(
+                        "Filter warning: Unknown filter type '{}' for file: {}",
+                        filter.r#type, path_str
+                    );
                 }
             }
         }
 
         if redaction_count > 0 {
-            debug!("Applied {} redactions", redaction_count);
+            info!(
+                "Filter summary: Applied {} total redaction(s) to {}",
+                redaction_count, path_str
+            );
         }
 
         Ok(result)
