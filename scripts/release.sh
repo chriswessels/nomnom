@@ -172,7 +172,14 @@ TAG_MESSAGE="Release $TAG
 
 $(git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~10")..HEAD --pretty=format:"- %s" --reverse 2>/dev/null || echo "- Initial release")"
 
-run_git_check "Creating tag $TAG" "tag -a \"$TAG\" -m \"$TAG_MESSAGE\"" "Failed to create git tag"
+print_info "Creating tag $TAG"
+print_command "git tag -a \"$TAG\" -m \"<multiline message>\""
+if ! git tag -a "$TAG" -m "$TAG_MESSAGE"; then
+    print_error "Creating tag $TAG failed!"
+    print_error "Failed to create git tag"
+    exit 1
+fi
+print_success "Creating tag $TAG completed successfully"
 
 run_git_check "Pushing tag to remote" "push origin \"$TAG\"" "Failed to push tag to remote"
 
