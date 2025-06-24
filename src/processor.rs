@@ -157,22 +157,38 @@ impl Processor {
             match filter.r#type.as_str() {
                 "redact" => {
                     let content_regex = regex::Regex::new(&filter.pattern)?;
-                    let matches_count = content_regex.find_iter(&result).count();
-                    if matches_count > 0 {
-                        info!(
-                            "Filter applied: Redaction pattern '{}' matched {} time(s) in {}",
-                            filter.pattern, matches_count, path_str
+                    let matches: Vec<_> = content_regex.find_iter(&result).collect();
+                    if !matches.is_empty() {
+                        // Log each match with line number and context
+                        self.log_filter_matches(
+                            &result,
+                            &matches,
+                            "Redaction",
+                            &filter.pattern,
+                            &path_str,
                         );
+
+                        // Apply redaction after logging to avoid borrowing issues
+                        let match_count = matches.len();
                         result = content_regex
                             .replace_all(&result, "██REDACTED██")
                             .to_string();
-                        redaction_count += matches_count;
+                        redaction_count += match_count;
                     }
                 }
                 "truncate" => {
                     let content_regex = regex::Regex::new(&filter.pattern)?;
-                    let matches_count = content_regex.find_iter(&result).count();
-                    if matches_count > 0 {
+                    let matches: Vec<_> = content_regex.find_iter(&result).collect();
+                    if !matches.is_empty() {
+                        // Log each match with line number and context
+                        self.log_filter_matches(
+                            &result,
+                            &matches,
+                            "Truncation",
+                            &filter.pattern,
+                            &path_str,
+                        );
+
                         let replacement = match filter.threshold {
                             Some(threshold) => {
                                 // For patterns like long strings, truncate to threshold length
@@ -189,10 +205,6 @@ impl Processor {
                                 }
                             }
                         };
-                        info!(
-                            "Filter applied: Truncation pattern '{}' matched {} time(s) in {}",
-                            filter.pattern, matches_count, path_str
-                        );
                         result = content_regex.replace_all(&result, &replacement).to_string();
                     }
                 }
@@ -213,6 +225,63 @@ impl Processor {
         }
 
         Ok(result)
+    }
+
+    fn log_filter_matches(
+        &self,
+        content: &str,
+        matches: &[regex::Match],
+        filter_type: &str,
+        pattern: &str,
+        path_str: &str,
+    ) {
+        info!(
+            "Filter applied: {} pattern '{}' matched {} time(s) in {}",
+            filter_type,
+            pattern,
+            matches.len(),
+            path_str
+        );
+
+        // Group matches by line number for more readable logging
+        let lines: Vec<&str> = content.lines().collect();
+        let mut current_pos = 0;
+        let mut line_matches: std::collections::HashMap<usize, Vec<String>> =
+            std::collections::HashMap::new();
+
+        for (line_idx, line) in lines.iter().enumerate() {
+            let line_start = current_pos;
+            let line_end = current_pos + line.len();
+
+            for m in matches {
+                if m.start() >= line_start && m.start() < line_end {
+                    let matched_text = m.as_str();
+                    // Truncate very long matches for readability
+                    let display_match = if matched_text.len() > 100 {
+                        format!("{}...", &matched_text[..97])
+                    } else {
+                        matched_text.to_string()
+                    };
+
+                    line_matches
+                        .entry(line_idx + 1) // Line numbers start at 1
+                        .or_default()
+                        .push(display_match);
+                }
+            }
+
+            current_pos = line_end + 1; // +1 for the newline character
+        }
+
+        // Log matches grouped by line
+        for (line_num, matched_texts) in line_matches {
+            for matched_text in matched_texts {
+                info!(
+                    "  {} match at line {}: '{}'",
+                    filter_type, line_num, matched_text
+                );
+            }
+        }
     }
 }
 

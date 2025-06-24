@@ -1,0 +1,12 @@
+# Test configuration file for filter testing
+database_host=localhost
+database_port=5432
+# These should be redacted by filters
+password=supersecret123
+api_key=sk-1234567890abcdef1234567890abcdef
+secret_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.test
+# AWS key pattern
+aws_access_key=AKIAIOSFODNN7EXAMPLE
+# Normal config should remain
+timeout=30
+max_connections=100
