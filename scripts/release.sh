@@ -38,15 +38,16 @@ run_check() {
 # Function to run a git command with clear output
 run_git_check() {
     local description="$1"
-    local git_args="$2"
-    local failure_msg="${3:-Git operation failed}"
+    shift
+    local failure_msg="${*: -1}"  # Last argument is failure message
+    local git_args=("${@:1:$#-1}")  # All but last argument are git args
     
     print_info "$description"
-    print_command "git $git_args"
+    print_command "git ${git_args[*]}"
     
-    if ! git $git_args; then
+    if ! git "${git_args[@]}"; then
         print_error "$description failed!"
-        print_error "Git command that failed: git $git_args"
+        print_error "Git command that failed: git ${git_args[*]}"
         print_error "$failure_msg"
         exit 1
     fi
@@ -74,7 +75,7 @@ if [[ ! -f "Cargo.toml" ]]; then
     exit 1
 fi
 
-VERSION=$(grep '^version = ' Cargo.toml | head -n1 | sed 's/version = "\(.*\)"/\1/')
+VERSION=$(grep -E '^[[:space:]]*version[[:space:]]*=' Cargo.toml | head -n1 | sed -E 's/^[[:space:]]*version[[:space:]]*=[[:space:]]*"([^"]*)".*$/\1/')
 
 if [[ -z "$VERSION" ]]; then
     print_error "Could not extract version from Cargo.toml"
@@ -87,7 +88,7 @@ print_info "Current version in Cargo.toml: $VERSION"
 print_info "Git tag to create: $TAG"
 
 # Check if tag already exists locally
-if git tag -l | grep -q "^$TAG$"; then
+if git tag -l "$TAG" | grep -q "^$TAG$"; then
     print_error "Tag $TAG already exists locally"
     print_info "Existing tags:"
     git tag -l | grep "^v" | sort -V | tail -5
@@ -95,7 +96,7 @@ if git tag -l | grep -q "^$TAG$"; then
 fi
 
 # Check if tag exists on remote
-if git ls-remote --tags origin | grep -q "refs/tags/$TAG$"; then
+if git ls-remote --tags origin | grep -q "refs/tags/$TAG\$"; then
     print_error "Tag $TAG already exists on remote"
     print_info "Remote tags:"
     git ls-remote --tags origin | grep "refs/tags/v" | sed 's/.*refs\/tags\///' | sort -V | tail -5
@@ -108,7 +109,7 @@ if [[ "$CURRENT_BRANCH" != "main" ]]; then
     print_warning "Not on main branch (currently on: $CURRENT_BRANCH)"
     read -p "Continue anyway? [y/N] " -n 1 -r
     echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    if [[ "$REPLY" != "y" && "$REPLY" != "Y" ]]; then
         print_info "Aborted"
         exit 0
     fi
@@ -116,7 +117,7 @@ fi
 
 # Check if local main is up to date with remote
 if git remote get-url origin > /dev/null 2>&1; then
-    run_git_check "Fetching latest changes from remote" "fetch origin"
+    run_git_check "Fetching latest changes from remote" fetch origin "Failed to fetch from remote"
     
     LOCAL=$(git rev-parse HEAD)
     REMOTE=$(git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null || echo "")
@@ -162,26 +163,29 @@ echo
 read -p "Create and push release tag? [y/N] " -n 1 -r
 echo
 
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+if [[ "$REPLY" != "y" && "$REPLY" != "Y" ]]; then
     print_info "Aborted"
     exit 0
 fi
 
-# Create annotated tag
-TAG_MESSAGE="Release $TAG
-
-$(git log $(git describe --tags --abbrev=0 2>/dev/null || echo "HEAD~10")..HEAD --pretty=format:"- %s" --reverse 2>/dev/null || echo "- Initial release")"
-
+# Create simple tag
 print_info "Creating tag $TAG"
-print_command "git tag -a \"$TAG\" -m \"<multiline message>\""
-if ! git tag -a "$TAG" -m "$TAG_MESSAGE"; then
+print_command "git tag \"$TAG\""
+if ! git tag "$TAG"; then
     print_error "Creating tag $TAG failed!"
     print_error "Failed to create git tag"
     exit 1
 fi
 print_success "Creating tag $TAG completed successfully"
 
-run_git_check "Pushing tag to remote" "push origin \"$TAG\"" "Failed to push tag to remote"
+print_info "Pushing tag to remote"
+print_command "git push origin \"$TAG\""
+if ! git push origin "$TAG"; then
+    print_error "Pushing tag to remote failed!"
+    print_error "Failed to push tag to remote"
+    exit 1
+fi
+print_success "Pushing tag to remote completed successfully"
 
 print_success "Release $TAG created and pushed!"
 print_info "GitHub Actions will now build and publish the release automatically."
