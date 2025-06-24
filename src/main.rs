@@ -233,7 +233,7 @@ fn run(cli: Cli) -> Result<()> {
         config.max_size = max_size.clone();
     }
     config.format = cli.format.as_str().to_string();
-    
+
     // Override safe logging if unsafe logging flag is provided
     if cli.unsafe_logging {
         warn!("Unsafe logging enabled - secret values may be shown in logs!");
