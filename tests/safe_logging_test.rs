@@ -33,6 +33,7 @@ fn test_safe_logging_mode() {
 
     let entry = FileEntry {
         path: file_path.clone(),
+        absolute_path: file_path.clone(),
         size: std::fs::metadata(&file_path).unwrap().len(),
         is_binary: false,
         is_oversized: false,
@@ -83,6 +84,7 @@ fn test_unsafe_logging_mode() {
 
     let entry = FileEntry {
         path: file_path.clone(),
+        absolute_path: file_path.clone(),
         size: std::fs::metadata(&file_path).unwrap().len(),
         is_binary: false,
         is_oversized: false,
@@ -143,6 +145,7 @@ fn test_safe_logging_with_truncation() {
 
     let entry = FileEntry {
         path: file_path.clone(),
+        absolute_path: file_path.clone(),
         size: std::fs::metadata(&file_path).unwrap().len(),
         is_binary: false,
         is_oversized: false,

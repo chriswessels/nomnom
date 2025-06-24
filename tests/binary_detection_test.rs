@@ -15,6 +15,7 @@ fn test_binary_detection_with_test_files() {
     if png_path.exists() {
         let png_entry = FileEntry {
             path: png_path.clone(),
+            absolute_path: png_path.clone(),
             size: std::fs::metadata(&png_path).unwrap().len(),
             is_binary: false, // Will be detected by content analysis
             is_oversized: false,
@@ -35,6 +36,7 @@ fn test_binary_detection_with_test_files() {
     if bin_path.exists() {
         let bin_entry = FileEntry {
             path: bin_path.clone(),
+            absolute_path: bin_path.clone(),
             size: std::fs::metadata(&bin_path).unwrap().len(),
             is_binary: false, // Will be detected by content analysis
             is_oversized: false,
@@ -49,6 +51,7 @@ fn test_binary_detection_with_test_files() {
     if exe_path.exists() {
         let exe_entry = FileEntry {
             path: exe_path.clone(),
+            absolute_path: exe_path.clone(),
             size: std::fs::metadata(&exe_path).unwrap().len(),
             is_binary: false, // Will be detected by content analysis
             is_oversized: false,
@@ -66,6 +69,7 @@ fn test_binary_detection_with_test_files() {
     if config_path.exists() {
         let config_entry = FileEntry {
             path: config_path.clone(),
+            absolute_path: config_path.clone(),
             size: std::fs::metadata(&config_path).unwrap().len(),
             is_binary: false,
             is_oversized: false,
@@ -107,6 +111,7 @@ fn test_binary_detection_logging() {
     if png_path.exists() {
         let png_entry = FileEntry {
             path: png_path.clone(),
+            absolute_path: png_path.clone(),
             size: std::fs::metadata(&png_path).unwrap().len(),
             is_binary: false, // This will trigger content-based binary detection
             is_oversized: false,
@@ -120,7 +125,8 @@ fn test_binary_detection_logging() {
     // Test with extension-based binary detection
     let fake_png_path = PathBuf::from("fake.png");
     let fake_png_entry = FileEntry {
-        path: fake_png_path,
+        path: fake_png_path.clone(),
+        absolute_path: fake_png_path,
         size: 100,
         is_binary: true, // This will trigger extension-based binary detection
         is_oversized: false,

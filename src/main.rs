@@ -1,6 +1,7 @@
 mod cli;
 mod config;
 mod error;
+mod git;
 mod output;
 mod processor;
 mod walker;
@@ -247,7 +248,18 @@ fn run(cli: Cli) -> Result<()> {
         config.resolve_threads()?
     };
 
-    info!("Processing source: {:?}", cli.source);
+    // Determine if source is remote or local and prepare processing path
+    let (_temp_dir_guard, processing_path, repo_root) = if git::is_remote_source(&cli.source) {
+        info!("Source appears to be a remote repository. Cloning...");
+        let (temp_dir, path) = git::clone_repo(&cli.source)?;
+        let repo_root = temp_dir.path().to_path_buf();
+        info!("Repository processing path: {:?}", path);
+        (Some(temp_dir), path, Some(repo_root))
+    } else {
+        (None, std::path::PathBuf::from(&cli.source), None)
+    };
+
+    info!("Processing source: {:?}", processing_path);
     info!("Output format: {}", config.format);
     info!("Output destination: {}", cli.out);
     info!("Thread count: {}", thread_count);
@@ -255,10 +267,20 @@ fn run(cli: Cli) -> Result<()> {
 
     // Walk the directory and collect files
     let walker = Walker::new(config.clone());
-    let files = if thread_count > 1 {
-        walker.walk_parallel(&cli.source, thread_count)?
+    let files = if let Some(ref repo_root) = repo_root {
+        // For git repositories, make paths relative to repository root
+        if thread_count > 1 {
+            walker.walk_parallel_relative(&processing_path, thread_count, repo_root)?
+        } else {
+            walker.walk_relative(&processing_path, repo_root)?
+        }
     } else {
-        walker.walk(&cli.source)?
+        // For local paths, use normal walking
+        if thread_count > 1 {
+            walker.walk_parallel(&processing_path, thread_count)?
+        } else {
+            walker.walk(&processing_path)?
+        }
     };
 
     info!("Found {} files to process", files.len());

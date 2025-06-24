@@ -9,7 +9,10 @@ use tracing::{debug, warn};
 
 #[derive(Debug, Clone)]
 pub struct FileEntry {
+    /// The path to display in output (may be relative)
     pub path: PathBuf,
+    /// The absolute path for reading the file
+    pub absolute_path: PathBuf,
     pub size: u64,
     pub is_binary: bool,
     pub is_oversized: bool,
@@ -25,7 +28,7 @@ impl Walker {
     }
 
     pub fn walk<P: AsRef<Path>>(&self, source: P) -> Result<Vec<FileEntry>> {
-        self.walk_internal(source, 1)
+        self.walk_internal(source, 1, None)
     }
 
     pub fn walk_parallel<P: AsRef<Path>>(
@@ -33,13 +36,27 @@ impl Walker {
         source: P,
         thread_count: usize,
     ) -> Result<Vec<FileEntry>> {
-        self.walk_internal(source, thread_count)
+        self.walk_internal(source, thread_count, None)
+    }
+
+    pub fn walk_relative<P: AsRef<Path>>(&self, source: P, base_path: P) -> Result<Vec<FileEntry>> {
+        self.walk_internal(source, 1, Some(base_path.as_ref()))
+    }
+
+    pub fn walk_parallel_relative<P: AsRef<Path>>(
+        &self,
+        source: P,
+        thread_count: usize,
+        base_path: P,
+    ) -> Result<Vec<FileEntry>> {
+        self.walk_internal(source, thread_count, Some(base_path.as_ref()))
     }
 
     fn walk_internal<P: AsRef<Path>>(
         &self,
         source: P,
         thread_count: usize,
+        base_path: Option<&Path>,
     ) -> Result<Vec<FileEntry>> {
         let source = source.as_ref();
         let max_size = self.config.resolve_max_size()?;
@@ -75,7 +92,7 @@ impl Walker {
                             continue;
                         }
 
-                        match self.process_file(path, max_size) {
+                        match self.process_file_with_base(path, max_size, base_path) {
                             Ok(Some(file_entry)) => entries.push(file_entry),
                             Ok(None) => debug!("Skipped file: {:?}", path),
                             Err(e) => warn!("Error processing file {:?}: {}", path, e),
@@ -108,7 +125,7 @@ impl Walker {
                             }
 
                             let walker = Walker::new(config.clone());
-                            match walker.process_file(path, max_size) {
+                            match walker.process_file_with_base(path, max_size, base_path) {
                                 Ok(Some(file_entry)) => {
                                     if let Ok(mut entries) = entries.lock() {
                                         entries.push(file_entry);
@@ -135,7 +152,12 @@ impl Walker {
         }
     }
 
-    fn process_file(&self, path: &Path, max_size: u64) -> Result<Option<FileEntry>> {
+    fn process_file_with_base(
+        &self,
+        path: &Path,
+        max_size: u64,
+        base_path: Option<&Path>,
+    ) -> Result<Option<FileEntry>> {
         let metadata = match fs::metadata(path) {
             Ok(metadata) => metadata,
             Err(e) => {
@@ -150,8 +172,16 @@ impl Walker {
         // Quick binary detection based on file extension
         let is_binary = self.is_binary_by_extension(path);
 
+        // Determine the path to store (relative to base_path if provided)
+        let stored_path = if let Some(base) = base_path {
+            path.strip_prefix(base).unwrap_or(path).to_path_buf()
+        } else {
+            path.to_path_buf()
+        };
+
         Ok(Some(FileEntry {
-            path: path.to_path_buf(),
+            path: stored_path,
+            absolute_path: path.to_path_buf(),
             size,
             is_binary,
             is_oversized,
@@ -220,7 +250,7 @@ mod tests {
         let test_file = temp_dir.path().join("test.txt");
         fs::write(&test_file, "Hello, world!").unwrap();
 
-        let result = walker.process_file(&test_file, 1024)?;
+        let result = walker.process_file_with_base(&test_file, 1024, None)?;
         assert!(result.is_some());
 
         let entry = result.unwrap();

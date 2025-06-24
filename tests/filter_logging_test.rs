@@ -41,6 +41,7 @@ fn test_current_filter_behavior() {
 
     let entry = FileEntry {
         path: file_path.clone(),
+        absolute_path: file_path.clone(),
         size: std::fs::metadata(&file_path).unwrap().len(),
         is_binary: false,
         is_oversized: false,
@@ -66,6 +67,7 @@ fn test_current_filter_behavior() {
 
     let html_entry = FileEntry {
         path: html_file_path.clone(),
+        absolute_path: html_file_path.clone(),
         size: std::fs::metadata(&html_file_path).unwrap().len(),
         is_binary: false,
         is_oversized: false,
@@ -86,6 +88,7 @@ fn test_current_filter_behavior() {
 
     let binary_entry = FileEntry {
         path: binary_file_path.clone(),
+        absolute_path: binary_file_path.clone(),
         size: std::fs::metadata(&binary_file_path).unwrap().len(),
         is_binary: false, // Will be detected as binary by content
         is_oversized: false,
@@ -100,6 +103,7 @@ fn test_current_filter_behavior() {
 
     let css_entry = FileEntry {
         path: css_file_path.clone(),
+        absolute_path: css_file_path.clone(),
         size: std::fs::metadata(&css_file_path).unwrap().len(),
         is_binary: false,
         is_oversized: false,
@@ -163,6 +167,7 @@ password=yetanothersecret"#;
 
     let entry = FileEntry {
         path: file_path.clone(),
+        absolute_path: file_path.clone(),
         size: std::fs::metadata(&file_path).unwrap().len(),
         is_binary: false,
         is_oversized: false,
@@ -199,6 +204,7 @@ password=yetanothersecret"#;
 
     let html_entry = FileEntry {
         path: html_file_path.clone(),
+        absolute_path: html_file_path.clone(),
         size: std::fs::metadata(&html_file_path).unwrap().len(),
         is_binary: false,
         is_oversized: false,

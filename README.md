@@ -16,7 +16,7 @@ A blazingly fast, cross-platform CLI tool for code repository analysis and intel
 - **📋 Multiple Formats**: Markdown, JSON, and XML output formats
 - **🛡️ Security First**: Built-in secret detection and redaction with safe logging
 - **📊 Enhanced Monitoring**: Line-by-line filter logging with character position tracking
-- **📁 Git Integration**: Respects `.gitignore` and `.ignore` files
+- **📁 Git Integration**: Respects `.gitignore` and `.ignore` files, plus **shallow remote repository cloning with branch/tag support**
 - **⚡ Memory Efficient**: Streaming processing with configurable size limits
 
 ## 🚀 Quick Start
@@ -56,6 +56,24 @@ nomnom --format md --out docs.md
 # Process specific directory with custom config
 nomnom --config my-config.yml /path/to/project
 
+# Analyze a remote git repository
+nomnom https://github.com/chriswessels/nomnom.git
+
+# Analyze just the src directory of a remote repository
+nomnom "https://github.com/rust-lang/git2-rs.git#src"
+
+# Analyze a specific branch or tag
+nomnom "https://github.com/rust-lang/git2-rs.git@main"
+
+# Analyze specific branch and subdirectory
+nomnom "https://github.com/rust-lang/git2-rs.git@main#src"
+
+# SSH syntax with reference and subpath
+nomnom "git@github.com:user/repo.git@feature-branch:src/lib"
+
+# Clone and analyze remote repo with JSON output
+nomnom --format json https://github.com/rust-lang/git2-rs.git | jq '.'
+
 # JSON output for programmatic use (clean piping)
 nomnom --format json --threads 8 | jq '.'
 
@@ -74,7 +92,7 @@ RUST_LOG=info nomnom --out analysis.md .
 nomnom [OPTIONS] [SOURCE]
 
 Arguments:
-  [SOURCE]  Source file or directory to process [default: .]
+  [SOURCE]  Source file, directory, or remote git URL (with optional subpath) to process [default: .]
 
 Options:
   -o, --out <OUT>              Output file ('-' for stdout) [default: -]
@@ -159,6 +177,100 @@ nomnom --validate-config --threads 8       # Test CLI overrides
 ```
 
 Shows discovered config files, final resolved values, and validation errors.
+
+## 📦 Git Remote Support
+
+Nomnom can directly analyze remote git repositories without requiring manual cloning. When you provide a git repository URL, Nomnom automatically:
+
+1. **Shallow clones** the repository (depth=1) to a secure temporary directory for bandwidth efficiency
+2. **Checks out** specific branches, tags, or commits if specified
+3. **Processes** all files using the same pipeline as local directories
+4. **Cleans up** the temporary directory automatically (even on errors)
+
+### Supported URL Formats
+
+```bash
+# HTTPS URLs
+nomnom https://github.com/user/repository.git
+nomnom https://gitlab.com/user/repository.git
+
+# HTTP URLs (automatically upgraded to HTTPS when possible)
+nomnom http://github.com/user/repository.git
+
+# SSH URLs
+nomnom git@github.com:user/repository.git
+nomnom ssh://git@bitbucket.org/user/repository.git
+
+# Local .git repositories
+nomnom /path/to/local/repo.git
+```
+
+### Git References and Subpath Support
+
+Target specific branches, tags, commits, and directories within repositories:
+
+```bash
+# Reference syntax (@ symbol)
+nomnom "https://github.com/user/repo.git@main"                    # Specific branch
+nomnom "https://github.com/user/repo.git@v1.2.3"                 # Specific tag
+nomnom "https://github.com/user/repo.git@abc123def"              # Specific commit SHA
+
+# Subpath syntax (# for HTTPS, : for SSH)
+nomnom "https://github.com/user/repo.git#src"                    # HTTPS subpath
+nomnom "git@github.com:user/repo.git:src"                        # SSH subpath
+
+# Combined reference and subpath
+nomnom "https://github.com/user/repo.git@main#src"               # HTTPS: branch + subpath
+nomnom "git@github.com:user/repo.git@feature-branch:src/lib"     # SSH: branch + subpath
+nomnom "https://github.com/facebook/react.git@v18.2.0#packages/react"
+
+# Complex examples
+nomnom "git@github.com:rust-lang/rust.git@nightly:compiler/rustc_ast"
+nomnom "https://github.com/microsoft/TypeScript.git@main#src/compiler"
+```
+
+**Benefits of reference and subpath targeting:**
+- **Bandwidth efficient** - Shallow clone (depth=1) reduces download size by 90%+
+- **Version specific** - Target exact branches, tags, or commit SHAs
+- **Faster analysis** - Only processes relevant directories when using subpaths
+- **Reduced noise** - Focus on specific parts of large repositories  
+- **Clear paths** - Output shows repository structure (e.g., `src/main.rs`)
+
+### Remote Repository Examples
+
+```bash
+# Analyze a popular Rust crate
+nomnom https://github.com/serde-rs/serde.git
+
+# Focus on specific version and source code
+nomnom "https://github.com/facebook/react.git@v18.2.0#packages/react/src"
+
+# Generate documentation for specific API version
+nomnom --format md --out api-docs.md "https://github.com/user/project.git@v2.1.0#docs/api"
+
+# Compare specific branch with local changes
+nomnom --format json "https://github.com/user/project.git@develop#src" > remote-src.json
+nomnom --format json ./local-project/src > local-src.json
+diff remote-src.json local-src.json
+
+# Process compiler code from specific Rust nightly
+nomnom "git@github.com:rust-lang/rust.git@nightly:compiler/rustc_ast"
+
+# Analyze tagged release of a popular library
+nomnom "https://github.com/serde-rs/serde.git@v1.0.195"
+
+# SSH access to private repo with specific commit
+nomnom "git@gitlab.company.com:team/private-repo.git@abc123def456:src/core"
+```
+
+### Security Considerations
+
+- **Shallow cloning** minimizes data exposure and bandwidth usage
+- **Temporary directories** are created with restricted permissions
+- **Automatic cleanup** ensures no repository data persists after processing
+- **Network timeouts** prevent hanging on unreachable repositories
+- **Same filtering rules** apply to remote repositories as local directories
+- **No credentials stored** - uses system git configuration for authentication
 
 ### Logging
 
@@ -270,6 +382,7 @@ src/
 ├── main.rs          # CLI entry point and orchestration
 ├── cli.rs           # Command-line argument parsing
 ├── config.rs        # Configuration loading and merging
+├── git.rs           # Git repository cloning and remote source detection
 ├── walker.rs        # Parallel directory traversal
 ├── processor.rs     # Content processing and filtering
 ├── output.rs        # Output format writers
@@ -288,6 +401,15 @@ cargo test config::tests
 # Test filter logging behavior
 cargo test safe_logging_test
 cargo test filter_logging_test
+
+# Test git remote functionality
+cargo test git_remote_ingestion_test
+
+# Test git subpath functionality  
+cargo test test_git_subpath_functionality
+
+# Test git reference parsing and SSH syntax
+cargo test git::tests::test_parse_git_source
 
 # Run with output
 cargo test -- --nocapture

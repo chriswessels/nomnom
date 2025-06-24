@@ -56,7 +56,7 @@ impl Processor {
         }
 
         // Read file content
-        let content = match self.read_file_content(&entry.path, entry.size) {
+        let content = match self.read_file_content(&entry.absolute_path, entry.size) {
             Ok(content) => content,
             Err(e) => {
                 warn!("Error reading file {}: {}", path_str, e);

@@ -1,5 +1,4 @@
 use clap::{Parser, ValueEnum};
-use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -10,7 +9,7 @@ pub struct Cli {
     pub out: String,
 
     /// Output format
-    #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Txt)]
+    #[arg(short = 'f', long, value_enum, default_value_t = OutputFormat::Md)]
     pub format: OutputFormat,
 
     /// Number of worker threads ('auto' or positive integer)
@@ -27,7 +26,7 @@ pub struct Cli {
 
     /// Additional config file (highest precedence)
     #[arg(long)]
-    pub config: Option<PathBuf>,
+    pub config: Option<std::path::PathBuf>,
 
     /// Print default YAML configuration and exit
     #[arg(long)]
@@ -41,15 +40,13 @@ pub struct Cli {
     #[arg(long)]
     pub unsafe_logging: bool,
 
-    /// Source file or directory to process
+    /// Source file, directory, or remote git URL to process
     #[arg(default_value = ".")]
-    pub source: PathBuf,
+    pub source: String,
 }
 
 #[derive(Clone, Debug, ValueEnum)]
 pub enum OutputFormat {
-    /// Plain text format
-    Txt,
     /// Markdown format with code blocks
     Md,
     /// JSON structured output
@@ -61,7 +58,6 @@ pub enum OutputFormat {
 impl OutputFormat {
     pub fn as_str(&self) -> &'static str {
         match self {
-            OutputFormat::Txt => "txt",
             OutputFormat::Md => "md",
             OutputFormat::Json => "json",
             OutputFormat::Xml => "xml",

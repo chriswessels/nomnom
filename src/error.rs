@@ -14,6 +14,9 @@ pub enum NomnomError {
     #[error("Walk error: {0}")]
     Walk(#[from] ignore::Error),
 
+    #[error("Git error: {0}")]
+    Git(#[from] git2::Error),
+
     #[error("Regex error: {0}")]
     Regex(#[from] regex::Error),
 
