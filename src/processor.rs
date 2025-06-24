@@ -255,12 +255,23 @@ impl Processor {
 
             for m in matches {
                 if m.start() >= line_start && m.start() < line_end {
-                    let matched_text = m.as_str();
-                    // Truncate very long matches for readability
-                    let display_match = if matched_text.len() > 100 {
-                        format!("{}...", &matched_text[..97])
+                    let display_match = if self.config.safe_logging {
+                        // Safe mode: show character positions instead of actual content
+                        let match_start_in_line = m.start() - line_start;
+                        let match_end_in_line = match_start_in_line + m.len();
+                        format!(
+                            "[characters {}-{}]",
+                            match_start_in_line + 1,
+                            match_end_in_line
+                        )
                     } else {
-                        matched_text.to_string()
+                        // Unsafe mode: show actual matched text (truncated for readability)
+                        let matched_text = m.as_str();
+                        if matched_text.len() > 100 {
+                            format!("{}...", &matched_text[..97])
+                        } else {
+                            matched_text.to_string()
+                        }
                     };
 
                     line_matches
@@ -317,6 +328,7 @@ mod tests {
             max_size: "4M".to_string(),
             format: "md".to_string(),
             ignore_git: true,
+            safe_logging: true,
             filters: vec![], // No filters configured
         };
         let processor = Processor::new(config);

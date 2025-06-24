@@ -14,7 +14,8 @@ A blazingly fast, cross-platform CLI tool for code repository analysis and intel
 - **🚀 Lightning Fast**: Parallel directory traversal with intelligent memory mapping
 - **🎯 Smart Filtering**: Unified regex-based filter system with file pattern matching
 - **📋 Multiple Formats**: Markdown, JSON, and XML output formats
-- **🛡️ Security First**: Built-in secret detection and redaction
+- **🛡️ Security First**: Built-in secret detection and redaction with safe logging
+- **📊 Enhanced Monitoring**: Line-by-line filter logging with character position tracking
 - **📁 Git Integration**: Respects `.gitignore` and `.ignore` files
 - **⚡ Memory Efficient**: Streaming processing with configurable size limits
 
@@ -60,6 +61,9 @@ nomnom --format json --threads 8 | jq '.'
 
 # Copy to clipboard without log interference
 nomnom . | pbcopy
+
+# Monitor filter activity with detailed logging
+RUST_LOG=info nomnom --out analysis.md .
 ```
 
 ## 📖 Usage Guide
@@ -82,6 +86,7 @@ Options:
       --config <CONFIG>        Additional config file
       --init-config           Print default YAML configuration
       --validate-config       Validate configuration and show resolved values
+      --unsafe-logging        Disable safe logging (shows actual secret values in logs - use with caution)
   -h, --help                   Print help
   -V, --version               Print version
 ```
@@ -118,6 +123,7 @@ threads: auto              # "auto" or positive integer
 max_size: "4M"             # bytes, supports K/M/G suffix
 format: md                 # md | json | xml
 ignore_git: true           # respect .gitignore and .ignore files
+safe_logging: true         # prevent secret values from appearing in logs
 
 filters:
   - type: redact           # redact sensitive data
@@ -162,6 +168,33 @@ Logs auto-adjust for clean piping:
 - **`--quiet`**: Only errors shown
 - **`RUST_LOG=debug`**: Full debug output
 
+#### Enhanced Filter Logging
+
+Nomnom provides detailed logging when filters are applied, showing exactly which files and lines trigger matches:
+
+**Safe Logging (Default)**
+```bash
+Filter applied: Redaction pattern '(?i)(password|key).*' matched 2 time(s) in config.txt
+  Redaction match at line 3: [characters 1-23]
+  Redaction match at line 7: [characters 5-28]
+Filter applied: Binary detection by content - image.png
+Filter applied: CSS content simplification - styles.css
+```
+
+**Unsafe Logging (Debugging)**
+```bash
+# Enable with --unsafe-logging flag (use with caution!)
+Filter applied: Redaction pattern '(?i)(password|key).*' matched 2 time(s) in config.txt
+  Redaction match at line 3: 'password=supersecret123'
+  Redaction match at line 7: 'api_key=abc123def456'
+```
+
+**Configuration Options**
+```yaml
+safe_logging: true    # Default: hide actual secret values in logs
+# safe_logging: false # Show actual matched content (debugging only)
+```
+
 ## 🔒 Security & Filtering
 
 Nomnom features a powerful unified filter system that supports both content redaction and truncation with regex patterns and file matching.
@@ -205,9 +238,11 @@ Nomnom features a powerful unified filter system that supports both content reda
 
 ### Additional Security Features
 
-- **Binary detection**: MIME type and content analysis  
+- **Binary detection**: MIME type and content analysis with detailed logging
 - **Size limits**: Configurable file size limits with stubs
 - **Git integration**: Respects `.gitignore` and `.ignore` files
+- **Safe logging**: Character position logging instead of actual secret values (default)
+- **Comprehensive filter monitoring**: Line-by-line logging of all filter applications
 
 ## 🏗️ For Contributors
 
@@ -250,12 +285,25 @@ cargo test
 # Run specific test module
 cargo test config::tests
 
+# Test filter logging behavior
+cargo test safe_logging_test
+cargo test filter_logging_test
+
 # Run with output
 cargo test -- --nocapture
 
 # Test specific functionality
 cargo run -- --format json src/ | jq '.'
+
+# Test with unsafe logging to see actual filter matches
+RUST_LOG=info cargo run -- --unsafe-logging test/
 ```
+
+The repository includes comprehensive test files in the `test/` directory:
+- `test-image.png`: Valid PNG for binary detection testing
+- `test-binary.bin`: Binary data with null bytes
+- `test-executable`: Mock ELF executable
+- `test-config.txt`: Configuration file with various secret patterns
 
 ### Contributing Guidelines
 

@@ -14,6 +14,7 @@ fn test_current_filter_behavior() {
         max_size: "4M".to_string(),
         format: "md".to_string(),
         ignore_git: true,
+        safe_logging: false, // Use unsafe logging for test verification
         filters: vec![
             FilterConfig {
                 r#type: "redact".to_string(),
@@ -128,6 +129,7 @@ fn test_enhanced_filter_logging() {
         max_size: "4M".to_string(),
         format: "md".to_string(),
         ignore_git: true,
+        safe_logging: false, // Use unsafe logging for test verification
         filters: vec![
             FilterConfig {
                 r#type: "redact".to_string(),

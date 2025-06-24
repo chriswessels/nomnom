@@ -6,6 +6,10 @@ use figment::{
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+fn default_safe_logging() -> bool {
+    true // Default to safe logging to prevent accidental secret leakage
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub threads: ThreadsConfig,
@@ -13,6 +17,8 @@ pub struct Config {
     pub format: String,
     pub ignore_git: bool,
     pub filters: Vec<FilterConfig>,
+    #[serde(default = "default_safe_logging")]
+    pub safe_logging: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,6 +99,7 @@ impl Default for Config {
                     threshold: Some(50),
                 },
             ],
+            safe_logging: default_safe_logging(),
         }
     }
 }
@@ -275,6 +282,7 @@ mod tests {
         assert_eq!(config.max_size, "4M");
         assert_eq!(config.format, "md");
         assert!(config.ignore_git);
+        assert!(config.safe_logging); // Should default to true for security
         assert_eq!(config.filters.len(), 6); // 3 redact + 3 truncate filters
 
         // Check that we have the expected filter types

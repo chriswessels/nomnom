@@ -37,6 +37,10 @@ pub struct Cli {
     #[arg(long)]
     pub validate_config: bool,
 
+    /// Disable safe logging (shows actual secret values in logs - use with caution)
+    #[arg(long)]
+    pub unsafe_logging: bool,
+
     /// Source file or directory to process
     #[arg(default_value = ".")]
     pub source: PathBuf,
